@@ -21,7 +21,7 @@ anderen Aufgaben, oder einmalig in Ruhe beim Einrichten neuer Token.
 ## Product Purpose
 
 Eine Kinder-Audiobox auf Raspberry-Pi-Basis: NFC-Token auflegen, und ein Hörspiel, Hörbuch oder eine Playlist
-von Spotify startet. Die Box spielt komplett ohne App. Die App ist das Werkzeug der Eltern zum Einrichten,
+von Spotify oder von der SD-Karte startet. Die Box spielt komplett ohne App, lokale Inhalte auch ohne WLAN. Die App ist das Werkzeug der Eltern zum Einrichten,
 Verwalten und Begrenzen.
 
 Erfolg: Das Kind hört selbstständig, die Eltern behalten die Kontrolle mit wenig Aufwand, und die Box
@@ -54,7 +54,10 @@ nach Anleitung nach und richten die App selbst ein.
   Einstellungen (Lautstärke, Verhalten beim Auflegen/Abnehmen, LEDs, Energie), Kindermodus mit Eltern-PIN.
 - Aktueller Stand: App läuft nur gegen eine simulierte Demo-Box mit ausgedachtem Katalog. Echte
   Box-Verbindung, BLE-Einrichtung und Spotify-Login fehlen noch.
-- Quellen: nur Spotify. Audible bewusst zurückgestellt, lokale Dateien eventuell später.
+- Quellen: Spotify und lokale Audiodateien auf der Box (DRM-frei, per App hochgeladen; funktionieren offline).
+  Spotify-Inhalte sind nie offline verfügbar. Audible bewusst zurückgestellt.
+- Offline: Die Box bootet und spielt lokale Medien ohne Netz. Die App zeigt ehrlich, welche Token offline spielen
+  (z. B. Kennzeichnung „offline verfügbar“ in der Token-Liste).
 - Sprache: Deutsch.
 - Name: **Lauschkiste** (seit 2026-10-21; vorher „Hörspielbox“, kurz „Lauschkiste“). Technische IDs: Dart-Paket `lauschkiste`, Bundle-ID/applicationId `de.lauschkiste.app`.
 - Offen: Lizenz, Vertriebsweg. Eine formale Markenprüfung des Namens steht aus.
