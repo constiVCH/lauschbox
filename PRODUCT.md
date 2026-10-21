@@ -62,7 +62,7 @@ nach Anleitung nach und richten die App selbst ein.
 ## Brand Commitments
 
 - Name: **Lauschkiste** („lauschen“ + Kiste): kindgerecht und bodenständig; das Gehäuse ist eine Kiste mit Lautsprecher und LED-Ring oben.
-- Logo: `brand/logo.svg`. Draufsicht auf die Kiste: LED-Ring aus 12 Punkten, 9 davon leuchtend, der Token in der Mitte, auf Nachtblau.
+- Logo: `brand/logo.svg`. Korallfarbene Kiste in leichter Draufsicht auf Nachtblau: vorne das Lautsprechergitter, oben in einer dunklen Mulde der LED-Ring (12 Punkte, 9 leuchtend) mit dem Token, darüber ein warmer Lichtschein. Alle Icons erzeugt `brand/make_logo.py`.
 - Stimme: deutsch, direkt, für Erwachsene geschrieben.
 
 ## Evidence on Hand
