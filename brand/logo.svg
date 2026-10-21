@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschring">
+<defs>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="11"/></filter>
+</defs>
+<rect width="512" height="512" rx="113" fill="rgb(27,35,51)"/>
+<g filter="url(#glow)" opacity="0.3">
+<circle cx="256.0" cy="94.7" r="57.3" fill="rgb(255,190,92)"/>
+<circle cx="336.6" cy="116.3" r="57.3" fill="rgb(252,179,88)"/>
+<circle cx="395.7" cy="175.4" r="57.3" fill="rgb(249,168,84)"/>
+<circle cx="417.3" cy="256.0" r="57.3" fill="rgb(246,157,80)"/>
+<circle cx="395.7" cy="336.6" r="57.3" fill="rgb(244,146,76)"/>
+<circle cx="336.6" cy="395.7" r="57.3" fill="rgb(241,135,73)"/>
+<circle cx="256.0" cy="417.3" r="57.3" fill="rgb(238,124,69)"/>
+<circle cx="175.4" cy="395.7" r="57.3" fill="rgb(235,113,65)"/>
+<circle cx="116.3" cy="336.6" r="57.3" fill="rgb(232,102,61)"/>
+</g>
+<circle cx="256.0" cy="94.7" r="28.7" fill="rgb(255,190,92)"/>
+<circle cx="336.6" cy="116.3" r="28.7" fill="rgb(252,179,88)"/>
+<circle cx="395.7" cy="175.4" r="28.7" fill="rgb(249,168,84)"/>
+<circle cx="417.3" cy="256.0" r="28.7" fill="rgb(246,157,80)"/>
+<circle cx="395.7" cy="336.6" r="28.7" fill="rgb(244,146,76)"/>
+<circle cx="336.6" cy="395.7" r="28.7" fill="rgb(241,135,73)"/>
+<circle cx="256.0" cy="417.3" r="28.7" fill="rgb(238,124,69)"/>
+<circle cx="175.4" cy="395.7" r="28.7" fill="rgb(235,113,65)"/>
+<circle cx="116.3" cy="336.6" r="28.7" fill="rgb(232,102,61)"/>
+<circle cx="94.7" cy="256.0" r="28.7" fill="rgb(84,54,54)"/>
+<circle cx="116.3" cy="175.4" r="28.7" fill="rgb(84,54,54)"/>
+<circle cx="175.4" cy="116.3" r="28.7" fill="rgb(84,54,54)"/>
+<circle cx="256" cy="256" r="84.5" fill="rgb(255,244,230)"/>
+</svg>
