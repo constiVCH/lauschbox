@@ -1,4 +1,4 @@
-package de.hoerspielbox.hoerspielbox
+package de.lauschkiste.app
 
 import io.flutter.embedding.android.FlutterActivity
 

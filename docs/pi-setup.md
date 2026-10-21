@@ -4,9 +4,9 @@
 > 64-bit-Image und in Schritt 3 das `arm64`-Archiv nehmen.
 
 ## 1. Grundsystem
-- Raspberry Pi Imager → Gerät „Raspberry Pi Zero“ → **Raspberry Pi OS Lite (32-bit)**, Hostname `lauschring`,
+- Raspberry Pi Imager → Gerät „Raspberry Pi Zero“ → **Raspberry Pi OS Lite (32-bit)**, Hostname `lauschkiste`,
   SSH an, WLAN + Benutzer eintragen. (Der Zero W kann nur 2,4-GHz-WLAN.)
-- `ssh <user>@lauschring.local`, dann `sudo apt update && sudo apt full-upgrade -y`
+- `ssh <user>@lauschkiste.local`, dann `sudo apt update && sudo apt full-upgrade -y`
   Das dauert auf dem Zero W gern 20–40 Minuten. Am besten am Netzteil machen, nicht am Akku.
 - Optional, spart RAM und Bootzeit: `sudo systemctl disable --now ModemManager 2>/dev/null; sudo apt purge -y triggerhappy`
 
@@ -41,7 +41,7 @@ Meldet `ldd` fehlende Bibliotheken, die passenden Pakete nachinstallieren (`apt 
 
 **Konfiguration** `~/.config/go-librespot/config.yml`:
 ```yaml
-device_name: Lauschring
+device_name: Lauschkiste
 device_type: speaker
 audio_device: default
 bitrate: 160
@@ -103,7 +103,7 @@ python spikes/golibrespot_spike.py spotify:album:<ID> --position 90000   # ab 1:
 Erfolg = Hörspiel läuft aus dem Box-Lautsprecher, danach werden 10 s lang die WebSocket-Events ausgegeben.
 
 **b) Web API** (auf dem PC oder dem Pi), prüft den Login für die spätere Suche. Wenn go-librespot läuft,
-taucht „Lauschring“ als Gerät in der Web API auf:
+taucht „Lauschkiste“ als Gerät in der Web API auf:
 ```
 python spikes/spotify_spike.py --client-id <ID> --uri spotify:album:<ID>
 ```

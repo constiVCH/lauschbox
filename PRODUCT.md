@@ -56,13 +56,13 @@ nach Anleitung nach und richten die App selbst ein.
   Box-Verbindung, BLE-Einrichtung und Spotify-Login fehlen noch.
 - Quellen: nur Spotify. Audible bewusst zurückgestellt, lokale Dateien eventuell später.
 - Sprache: Deutsch.
-- Name: **Lauschring** (seit 2026-10-21; vorher Arbeitstitel „Hörspielbox“). Technische IDs (Dart-Paket, Bundle-ID, applicationId) heißen noch `hoerspielbox` und werden vor einer Veröffentlichung umgestellt.
+- Name: **Lauschkiste** (seit 2026-10-21; vorher „Hörspielbox“, kurz „Lauschkiste“). Technische IDs: Dart-Paket `lauschkiste`, Bundle-ID/applicationId `de.lauschkiste.app`.
 - Offen: Lizenz, Vertriebsweg. Eine formale Markenprüfung des Namens steht aus.
 
 ## Brand Commitments
 
-- Name: **Lauschring** („lauschen“ + der LED-Ring, in dessen Mitte der Token liegt).
-- Logo: `brand/logo.svg`. Der Ring aus 12 Punkten, 9 davon leuchtend, und der Token in der Mitte auf Nachtblau.
+- Name: **Lauschkiste** („lauschen“ + Kiste): kindgerecht und bodenständig; das Gehäuse ist eine Kiste mit Lautsprecher und LED-Ring oben.
+- Logo: `brand/logo.svg`. Draufsicht auf die Kiste: LED-Ring aus 12 Punkten, 9 davon leuchtend, der Token in der Mitte, auf Nachtblau.
 - Stimme: deutsch, direkt, für Erwachsene geschrieben.
 
 ## Evidence on Hand

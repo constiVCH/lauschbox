@@ -1,4 +1,4 @@
-# Lauschring-App (Flutter)
+# Lauschkiste-App (Flutter)
 
 Aktueller Stand: Die App läuft komplett mit einer **simulierten Demo-Box**. Es gibt noch keine Verbindung zu einer echten Box.
 
@@ -47,6 +47,6 @@ lib/
 
 ## Nächste Schritte
 - `HttpBox implements BoxConnection`: REST + WebSocket gegen die box-daemon-API (docs/konzept.md)
-- Box-Suche per mDNS (`_lauschring._tcp`), WLAN-Einrichtung per BLE
+- Box-Suche per mDNS (`_lauschkiste._tcp`), WLAN-Einrichtung per BLE
 - Spotify-Login (PKCE) in der App, Refresh Token an die Box
 - Device-Code von go-librespot (`GET /auth/code`) in der App anzeigen

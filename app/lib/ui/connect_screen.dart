@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../box/demo_box.dart';
 import 'home_screen.dart';
 
-/// Box auswählen. Später: Boxen per mDNS (_lauschring._tcp) finden, neue Box per BLE einrichten.
+/// Box auswählen. Später: Boxen per mDNS (_lauschkiste._tcp) finden, neue Box per BLE einrichten.
 class ConnectScreen extends StatelessWidget {
   const ConnectScreen({super.key});
 
@@ -19,9 +19,9 @@ class ConnectScreen extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               children: [
                 const SizedBox(height: 32),
-                Center(child: Image.asset('assets/logo.png', width: 112, height: 112, semanticLabel: 'Lauschring-Logo')),
+                Center(child: Image.asset('assets/logo.png', width: 112, height: 112, semanticLabel: 'Lauschkiste-Logo')),
                 const SizedBox(height: 8),
-                Text('Lauschring', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+                Text('Lauschkiste', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 4),
                 Text('Token auflegen, Geschichte hören.',
                     textAlign: TextAlign.center, style: TextStyle(color: scheme.onSurfaceVariant)),

@@ -1,4 +1,4 @@
-"""Erzeugt das Lauschring-Logo als SVG + PNG und ersetzt die Flutter-Standard-Icons."""
+"""Erzeugt das Lauschkiste-Logo als SVG + PNG und ersetzt die Flutter-Standard-Icons."""
 import math
 import sys
 from pathlib import Path
@@ -60,7 +60,7 @@ def render(size, rounded, scale=4):
 
 def svg():
     parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschring">',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschkiste">',
         "<defs>",
         '<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="11"/></filter>',
         "</defs>",

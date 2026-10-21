@@ -1,6 +1,6 @@
-<p align="center"><img src="brand/logo.svg" width="128" alt="Lauschring-Logo"></p>
+<p align="center"><img src="brand/logo.svg" width="128" alt="Lauschkiste-Logo"></p>
 
-# Lauschring
+# Lauschkiste
 
 Kinder-Audiobox auf Raspberry-Pi-Basis: NFC-Token auflegen → Hörspiel/Musik von Spotify startet.
 Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt komplett ohne App.

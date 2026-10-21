@@ -16,7 +16,7 @@
 │  go-librespot        Connect-Gerät + API auf localhost:3678 │
 │  BLE-Provisioning    WLAN-Daten aus der App empfangen       │
 └─────────────────────────────────────────────────────────────┘
-                 ▲ WLAN (mDNS _lauschring._tcp) / BLE
+                 ▲ WLAN (mDNS _lauschkiste._tcp) / BLE
 ┌────────────────┴────────────────┐
 │ Flutter-App (iOS/Android)       │
 └─────────────────────────────────┘

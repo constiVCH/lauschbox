@@ -1,5 +1,5 @@
-name: hoerspielbox
-description: "Lauschring – Eltern-App für die Kinder-Audiobox."
+name: lauschkiste
+description: "Lauschkiste – Eltern-App für die Kinder-Audiobox."
 publish_to: 'none'
 version: 0.1.0+1
 
