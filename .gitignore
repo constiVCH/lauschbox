@@ -5,3 +5,7 @@ __pycache__/
 
 # Lokale Werkzeug-Einstellungen
 .impeccable/config.local.json
+
+# box-daemon: Daten im Simulationsmodus, Testcache
+box/data/
+.pytest_cache/

@@ -1,0 +1,12 @@
+# box-daemon (python -m lauschbox)
+aiohttp>=3.10
+zeroconf>=0.130
+
+# Hardware am Pi (fehlen sie, läuft der Rest trotzdem)
+adafruit-circuitpython-pn532
+adafruit-circuitpython-neopixel-spi
+gpiozero
+lgpio
+
+# Tests (am PC)
+pytest
