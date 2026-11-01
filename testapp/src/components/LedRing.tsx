@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-import type { LedMode } from '@/demo/demoBox';
+import type { LedMode } from '@/box/types';
 
 const N = 12;
 
@@ -18,7 +18,7 @@ type Props = {
   brightness?: number;
 };
 
-const ANIMATED: LedMode[] = ['idle', 'paused', 'learn', 'unknown', 'denied', 'locked'];
+const ANIMATED: LedMode[] = ['idle', 'paused', 'learn', 'unknown', 'denied', 'locked', 'unlocked', 'error'];
 
 /** Zeichnet den WS2812-Ring (12 LEDs) so, wie ihn die Box ansteuert. */
 export function LedRing({ mode, color, fill, size, well, brightness = 1 }: Props) {
@@ -55,7 +55,7 @@ function GroupLed({ x, y, r, color, alpha }: { x: number; y: number; r: number; 
   return (
     <>
       <Circle cx={x} cy={y} r={r} fill="#000" opacity={0.4} />
-      {color && <Circle cx={x} cy={y} r={r * 2.4} fill={color} opacity={alpha * 0.32} />}
+      {color && <Circle cx={x} cy={y} r={r * 1.9} fill={color} opacity={alpha * 0.28} />}
       {color && <Circle cx={x} cy={y} r={r} fill={color} opacity={Math.min(1, alpha + 0.1)} />}
       {color && <Circle cx={x - r * 0.25} cy={y - r * 0.25} r={r * 0.45} fill="url(#glow)" opacity={alpha * 0.5} />}
     </>
@@ -91,6 +91,8 @@ function ledColors(mode: LedMode, color: string, fill: number, t: number): Led[]
       return all(color, pulse);
     case 'unknown':
     case 'locked':
+    case 'unlocked':
+    case 'error':
       return all(color, blink ? 1 : 0);
     case 'denied':
       return all(color, pulse);

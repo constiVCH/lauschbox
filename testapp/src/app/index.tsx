@@ -1,11 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { setActiveBox } from '@/box/BoxContext';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Txt } from '@/components/ui';
 import { load, save } from '@/storage';
@@ -23,10 +24,20 @@ export default function Start() {
   }, []);
 
   const valid = /^[\w.-]+(:\d+)?$/.test(host.trim());
-  const connect = () => {
+  const openBox = () => {
+    if (!valid) return;
+    save(HOST_KEY, host.trim());
+    setActiveBox(host.trim());
+    router.push('/box' as Href);
+  };
+  const testHardware = () => {
     if (!valid) return;
     save(HOST_KEY, host.trim());
     router.push({ pathname: '/hardware', params: { host: host.trim() } });
+  };
+  const openDemo = () => {
+    setActiveBox('demo');
+    router.push('/box' as Href);
   };
 
   return (
@@ -41,14 +52,59 @@ export default function Start() {
             Lauschbox
           </Txt>
           <Txt variant="callout" color="secondary" style={{ textAlign: 'center', maxWidth: 320 }}>
-            Test-App: die Bedienung mit einer simulierten Box ausprobieren oder den Testaufbau am Pi prüfen.
+            Mit deiner Box verbinden oder die Bedienung erst mit einer simulierten Box ausprobieren.
           </Txt>
         </View>
 
-        <Tap onPress={() => router.push('/demo')} scaleTo={0.98} accessibilityRole="button" accessibilityLabel="Demo-Box öffnen">
-          <Card style={styles.choice}>
+        <Card style={{ gap: space.md }}>
+          <View style={styles.choiceHead}>
             <View style={[styles.choiceIcon, { backgroundColor: c.accent }]}>
               <Ionicons name="radio-button-on" size={24} color="#fff" />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt variant="headline">Meine Box</Txt>
+              <Txt variant="footnote" color="secondary">
+                Token anlernen, Wiedergabe, Kindermodus. Box und Handy im selben WLAN.
+              </Txt>
+            </View>
+          </View>
+          <View style={{ gap: space.xs }}>
+            <Txt variant="footnote" color="secondary" nativeID="hostLabel">
+              Adresse der Box
+            </Txt>
+            <TextInput
+              value={host}
+              onChangeText={setHost}
+              onSubmitEditing={openBox}
+              placeholder="z. B. 192.168.178.42"
+              placeholderTextColor={c.textTertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'url'}
+              returnKeyType="go"
+              accessibilityLabelledBy="hostLabel"
+              accessibilityLabel="Adresse der Box"
+              style={[type.body, styles.input, { color: c.text, backgroundColor: c.fill }]}
+            />
+            <Txt variant="footnote" color="tertiary">
+              Die IP zeigt hostname -I auf dem Pi. Port 8080 ist voreingestellt, sonst IP:Port.
+            </Txt>
+          </View>
+          <Button label="Mit Box verbinden" icon="wifi" onPress={openBox} disabled={!valid} />
+          <Button
+            label="Hardware testen"
+            icon="hardware-chip"
+            kind="secondary"
+            onPress={testHardware}
+            disabled={!valid}
+            accessibilityHint="Braucht auf dem Pi den Testserver spikes/hwtest_server.py statt der Box-Software"
+          />
+        </Card>
+
+        <Tap onPress={openDemo} scaleTo={0.98} accessibilityRole="button" accessibilityLabel="Demo-Box öffnen">
+          <Card style={styles.choice}>
+            <View style={[styles.choiceIcon, { backgroundColor: c.fillStrong }]}>
+              <Ionicons name="sparkles" size={22} color={c.text} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Txt variant="headline">Demo-Box</Txt>
@@ -60,42 +116,6 @@ export default function Start() {
           </Card>
         </Tap>
 
-        <Card style={{ gap: space.md }}>
-          <View style={styles.choiceHead}>
-            <View style={[styles.choiceIcon, { backgroundColor: c.learn }]}>
-              <Ionicons name="hardware-chip" size={22} color="#fff" />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt variant="headline">Testaufbau</Txt>
-              <Txt variant="footnote" color="secondary">
-                NFC, Taster, LED-Ring und Lautsprecher am Pi live prüfen.
-              </Txt>
-            </View>
-          </View>
-          <View style={{ gap: space.xs }}>
-            <Txt variant="footnote" color="secondary" nativeID="hostLabel">
-              Adresse des Pi
-            </Txt>
-            <TextInput
-              value={host}
-              onChangeText={setHost}
-              onSubmitEditing={connect}
-              placeholder="z. B. 192.168.178.42"
-              placeholderTextColor={c.textTertiary}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'url'}
-              returnKeyType="go"
-              accessibilityLabelledBy="hostLabel"
-              accessibilityLabel="Adresse des Pi"
-              style={[type.body, styles.input, { color: c.text, backgroundColor: c.fill }]}
-            />
-            <Txt variant="footnote" color="tertiary">
-              Auf dem Pi: python spikes/hwtest_server.py, IP mit hostname -I. Port 8080 ist voreingestellt.
-            </Txt>
-          </View>
-          <Button label="Verbinden" icon="wifi" onPress={connect} disabled={!valid} kind="secondary" />
-        </Card>
       </ScrollView>
     </KeyboardAvoidingView>
   );

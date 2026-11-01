@@ -1,66 +1,86 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RequireBox, useBox } from '@/box/BoxContext';
+import type { BoxApi, Medium } from '@/box/types';
 import { Cover, TokenDisc } from '@/components/Cover';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Section, Txt } from '@/components/ui';
-import { catalog, formatTime, mediumByUri, totalSeconds } from '@/demo/catalog';
-import { demoBox, useDemoBox } from '@/demo/demoBox';
+import { formatTime } from '@/demo/catalog';
 import { radius, space, tokenColorNames, tokenColors, type, useColors } from '@/theme';
 
+export default function TokenEditScreen() {
+  return (
+    <RequireBox>
+      <TokenEdit />
+    </RequireBox>
+  );
+}
+
 /** Token anlegen oder bearbeiten: Name, Farbe (auch auf dem LED-Ring), Inhalt. */
-export default function TokenEdit() {
+function TokenEdit() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { uid, isNew } = useLocalSearchParams<{ uid: string; isNew?: string }>();
-  const s = useDemoBox();
-  const existing = s.tokens.find((t) => t.uid === uid);
+  const { view, api } = useBox();
+  const existing = view.tokens.find((t) => t.uid === uid);
   const creating = isNew === '1' || !existing;
 
   const [name, setName] = useState(existing?.name ?? '');
-  const [color, setColor] = useState(existing?.color ?? tokenColors[(s.tokens.length * 3) % tokenColors.length]);
-  const [mediumUri, setMediumUri] = useState(existing?.mediumUri ?? '');
-  const [query, setQuery] = useState('');
+  const [color, setColor] = useState(existing?.color ?? tokenColors[(view.tokens.length * 3) % tokenColors.length]);
+  const [medium, setMedium] = useState<Medium | null>(existing?.medium ?? null);
   const [triedSave, setTriedSave] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saved = useRef(false);
 
-  // Blatt per Wischgeste geschlossen: Lernmodus nicht hängen lassen
+  // Blatt ohne Speichern geschlossen (auch per Wischgeste): Lernmodus nicht hängen lassen
+  const learning = useRef(view.learning);
+  useEffect(() => {
+    learning.current = view.learning;
+  }, [view.learning]);
   useEffect(
     () => () => {
-      if (creating && demoBox.get().learning) demoBox.cancelLearn();
+      if (creating && !saved.current && learning.current) api.cancelLearn();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? catalog.filter((m) => `${m.title} ${m.artist}`.toLowerCase().includes(q)) : catalog;
-  }, [query]);
-
-  const medium = mediumByUri(mediumUri);
   const nameError = triedSave && !name.trim() ? 'Gib dem Token einen Namen.' : null;
   const mediumError = triedSave && !medium ? 'Wähl einen Inhalt aus.' : null;
 
-  const close = () => {
-    if (creating) demoBox.cancelLearn();
-    router.back();
-  };
+  const close = () => router.back();
 
-  const saveToken = () => {
+  const saveToken = async () => {
     setTriedSave(true);
-    if (!name.trim() || !medium) return;
-    demoBox.saveToken({ uid, name: name.trim(), color, mediumUri });
-    router.back();
+    if (!name.trim() || !medium || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.saveToken({ uid, name: name.trim(), color, medium });
+      saved.current = true;
+      router.back();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = () => {
-    const doIt = () => {
-      demoBox.deleteToken(uid);
-      router.back();
+    const doIt = async () => {
+      try {
+        await api.deleteToken(uid);
+        router.back();
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : String(e));
+      }
     };
     const msg = `„${existing?.name}“ wird von der Box gelöscht. Der Token selbst bleibt leer zurück und kann neu angelernt werden.`;
     if (Platform.OS === 'web') {
@@ -73,10 +93,10 @@ export default function TokenEdit() {
     }
   };
 
-  const pick = (uri: string) => {
-    setMediumUri(uri);
+  const pick = (m: Medium) => {
+    setMedium(m);
     // Namen vorschlagen, solange keiner eingetippt ist
-    if (!name.trim()) setName(shortName(mediumByUri(uri)?.title ?? ''));
+    if (!name.trim()) setName(shortName(m.title));
   };
 
   return (
@@ -84,11 +104,11 @@ export default function TokenEdit() {
       <View style={[styles.bar, { paddingTop: Platform.OS === 'ios' ? space.md : insets.top + space.sm }]}>
         <Button label="Abbrechen" kind="plain" compact onPress={close} />
         <Txt variant="headline">{creating ? 'Neuer Token' : 'Token bearbeiten'}</Txt>
-        <Button label="Sichern" kind="plain" compact onPress={saveToken} />
+        <Button label="Sichern" kind="plain" compact onPress={saveToken} disabled={saving} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xxl }]} keyboardShouldPersistTaps="handled">
         <View style={styles.preview}>
-          <TokenDisc size={88} color={color} emoji={medium?.emoji} />
+          <TokenDisc size={88} color={color} emoji={medium?.emoji} coverUrl={medium?.coverUrl} />
           <Txt variant="footnote" color="tertiary">
             UID {uid}
           </Txt>
@@ -114,7 +134,7 @@ export default function TokenEdit() {
 
         <Section title="Farbe" footer="Leuchtet auf dem LED-Ring, solange der Token aufliegt.">
           <View style={styles.swatches} accessibilityRole="radiogroup" accessibilityLabel="Farbe">
-            {tokenColors.map((col) => {
+            {tokenColors.map((col, i) => {
               const active = col === color;
               return (
                 <Tap
@@ -124,7 +144,7 @@ export default function TokenEdit() {
                   scaleTo={0.85}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={tokenColorNames[tokenColors.indexOf(col)]}
+                  accessibilityLabel={tokenColorNames[i]}
                   style={[styles.swatch, { backgroundColor: col }, active && { borderColor: c.text }]}
                 >
                   {active && <Ionicons name="checkmark" size={18} color="#fff" />}
@@ -134,65 +154,161 @@ export default function TokenEdit() {
           </View>
         </Section>
 
-        <Section title="Inhalt" footer="Demo-Katalog mit ausgedachten Titeln. Später sucht die Box direkt bei Spotify.">
-          <View style={[styles.search, { backgroundColor: c.surface }, mediumError && { borderColor: c.danger, borderWidth: 1 }]}>
-            <Ionicons name="search" size={18} color={c.textTertiary} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Hörspiel, Hörbuch oder Playlist"
-              placeholderTextColor={c.textTertiary}
-              autoCorrect={false}
-              returnKeyType="search"
-              accessibilityLabel="Inhalt suchen"
-              style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
-            />
-          </View>
-          {mediumError && (
-            <Txt variant="footnote" color={c.danger}>
-              {mediumError}
-            </Txt>
-          )}
-          <Card padded={false}>
-            {results.map((m, i) => {
-              const active = m.uri === mediumUri;
-              return (
-                <Tap
-                  key={m.uri}
-                  onPress={() => pick(m.uri)}
-                  haptic="selection"
-                  scaleTo={0.985}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={`${m.title}, ${m.kind}, ${m.tracks.length} Titel`}
-                >
-                  <View style={[styles.result, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.fillStrong }]}>
-                    <Cover medium={m} size={44} />
-                    <View style={{ flex: 1 }}>
-                      <Txt variant="subhead" style={{ fontWeight: '600' }} numberOfLines={2}>
-                        {m.title}
-                      </Txt>
-                      <Txt variant="footnote" color="secondary">
-                        {m.kind} · {m.tracks.length} Titel · {formatTime(totalSeconds(m))}
-                      </Txt>
-                    </View>
-                    <Ionicons name={active ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={active ? c.accent : c.textTertiary} />
-                  </View>
-                </Tap>
-              );
-            })}
-            {results.length === 0 && (
-              <Txt variant="callout" color="secondary" style={{ padding: space.lg, textAlign: 'center' }}>
-                Nichts gefunden für „{query}“.
-              </Txt>
-            )}
-          </Card>
-        </Section>
+        {api.catalog ? (
+          <CatalogPicker catalog={api.catalog} selected={medium?.uri} onPick={pick} error={mediumError} />
+        ) : (
+          <SpotifyLinkPicker api={api} medium={medium} onPick={pick} error={mediumError} />
+        )}
 
-        <Button label={creating ? 'Token anlernen' : 'Änderungen sichern'} onPress={saveToken} />
+        {saveError && (
+          <Txt variant="footnote" color={c.danger} style={{ marginBottom: space.md, textAlign: 'center' }}>
+            {saveError}
+          </Txt>
+        )}
+        <Button label={saving ? 'Speichert …' : creating ? 'Token anlernen' : 'Änderungen sichern'} onPress={saveToken} disabled={saving} />
         {!creating && <Button label="Token löschen" kind="destructive" onPress={remove} style={{ marginTop: space.md }} />}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+/** Echte Box: Link aus der Spotify-App („Teilen → Link kopieren“) einfügen, die Box holt Titel und Cover. */
+function SpotifyLinkPicker({ api, medium, onPick, error }: { api: BoxApi; medium: Medium | null; onPick: (m: Medium) => void; error: string | null }) {
+  const c = useColors();
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  const resolve = async (text: string) => {
+    if (!text.trim() || !api.resolveLink) return;
+    setBusy(true);
+    setLinkError(null);
+    try {
+      onPick(await api.resolveLink(text));
+      setLink('');
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const paste = async () => {
+    const text = await Clipboard.getStringAsync();
+    setLink(text);
+    resolve(text);
+  };
+
+  return (
+    <Section title="Inhalt" footer="In der Spotify-App beim Album, Hörbuch oder der Playlist: Teilen → Link kopieren. Dann hier einfügen.">
+      {medium && (
+        <Card style={styles.picked}>
+          <Cover medium={medium} size={56} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt variant="headline" numberOfLines={2}>
+              {medium.title}
+            </Txt>
+            <Txt variant="footnote" color="secondary" numberOfLines={1}>
+              {medium.kindLabel} · Spotify
+            </Txt>
+          </View>
+          <Ionicons name="checkmark-circle" size={24} color={c.success} />
+        </Card>
+      )}
+      <View style={[styles.search, { backgroundColor: c.surface }, (error || linkError) && { borderColor: c.danger, borderWidth: 1 }]}>
+        <Ionicons name="link" size={18} color={c.textTertiary} />
+        <TextInput
+          value={link}
+          onChangeText={setLink}
+          onSubmitEditing={() => resolve(link)}
+          placeholder={medium ? 'Anderen Link einfügen' : 'https://open.spotify.com/…'}
+          placeholderTextColor={c.textTertiary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          returnKeyType="done"
+          accessibilityLabel="Spotify-Link"
+          style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
+        />
+        {busy && <ActivityIndicator color={c.textSecondary} />}
+      </View>
+      <View style={styles.linkActions}>
+        <Button label="Einfügen" icon="clipboard" kind="secondary" compact onPress={paste} disabled={busy} />
+        {link.trim() !== '' && <Button label="Übernehmen" compact onPress={() => resolve(link)} disabled={busy} />}
+      </View>
+      {(linkError || error) && (
+        <Txt variant="footnote" color={c.danger}>
+          {linkError ?? error}
+        </Txt>
+      )}
+    </Section>
+  );
+}
+
+/** Demo: ausgedachter Katalog statt Spotify. */
+function CatalogPicker({ catalog, selected, onPick, error }: { catalog: Medium[]; selected?: string; onPick: (m: Medium) => void; error: string | null }) {
+  const c = useColors();
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? catalog.filter((m) => m.title.toLowerCase().includes(q)) : catalog;
+  }, [query, catalog]);
+
+  return (
+    <Section title="Inhalt" footer="Demo-Katalog mit ausgedachten Titeln. Mit der echten Box fügst du hier einen Spotify-Link ein.">
+      <View style={[styles.search, { backgroundColor: c.surface }, error && { borderColor: c.danger, borderWidth: 1 }]}>
+        <Ionicons name="search" size={18} color={c.textTertiary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Hörspiel, Hörbuch oder Playlist"
+          placeholderTextColor={c.textTertiary}
+          autoCorrect={false}
+          returnKeyType="search"
+          accessibilityLabel="Inhalt suchen"
+          style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
+        />
+      </View>
+      {error && (
+        <Txt variant="footnote" color={c.danger}>
+          {error}
+        </Txt>
+      )}
+      <Card padded={false}>
+        {results.map((m, i) => {
+          const active = m.uri === selected;
+          return (
+            <Tap
+              key={m.uri}
+              onPress={() => onPick(m)}
+              haptic="selection"
+              scaleTo={0.985}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${m.title}, ${m.kindLabel}, ${m.trackCount} Titel`}
+            >
+              <View style={[styles.result, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.fillStrong }]}>
+                <Cover medium={m} size={44} />
+                <View style={{ flex: 1 }}>
+                  <Txt variant="subhead" style={{ fontWeight: '600' }} numberOfLines={2}>
+                    {m.title}
+                  </Txt>
+                  <Txt variant="footnote" color="secondary">
+                    {m.kindLabel} · {m.trackCount} Titel · {formatTime(m.durationS ?? 0)}
+                  </Txt>
+                </View>
+                <Ionicons name={active ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={active ? c.accent : c.textTertiary} />
+              </View>
+            </Tap>
+          );
+        })}
+        {results.length === 0 && (
+          <Txt variant="callout" color="secondary" style={{ padding: space.lg, textAlign: 'center' }}>
+            Nichts gefunden für „{query}“.
+          </Txt>
+        )}
+      </Card>
+    </Section>
   );
 }
 
@@ -211,4 +327,6 @@ const styles = StyleSheet.create({
   swatch: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'transparent' },
   search: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, borderRadius: radius.sm + 2, borderCurve: 'continuous' },
   result: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md, paddingHorizontal: space.lg },
+  picked: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  linkActions: { flexDirection: 'row', gap: space.sm },
 });

@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
+import type { LedMode } from '@/box/types';
+
 import { catalog, mediumByUri, type Medium } from './catalog';
 
 /**
@@ -11,7 +13,7 @@ export type Progress = { track: number; position: number; finished: boolean };
 
 export type Token = { uid: string; name: string; color: string; mediumUri: string; progress: Progress };
 
-export type LedMode = 'off' | 'idle' | 'playing' | 'paused' | 'volume' | 'learn' | 'unknown' | 'denied' | 'locked';
+export type { LedMode };
 
 export type Notice = { id: number; text: string; tone: 'info' | 'warning' | 'success' };
 
@@ -315,7 +317,14 @@ class DemoBox {
     // Neue leere Token nachlegen, damit man weiter anlernen kann
     const tray = existing || s.tray.some((u) => isBlank({ ...s, tokens }, u)) ? s.tray : [...s.tray, randomUid()];
     this.set({ tokens, tray, learning: false, learnedUid: null });
-    if (!existing) this.notify(`„${token.name}“ ist angelernt.`, 'success');
+    if (!existing) {
+      this.notify(`„${token.name}“ ist angelernt.`, 'success');
+      if (s.placed === token.uid) {
+        // Der neue Token liegt noch auf: gleich abspielen, als Bestätigung
+        this.state = { ...this.state, placed: null };
+        this.place(token.uid);
+      }
+    }
   };
 
   deleteToken = (uid: string) => {

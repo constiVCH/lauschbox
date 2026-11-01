@@ -52,9 +52,10 @@ nach Anleitung nach und richten die App selbst ein.
   3 Taster, PiSugar-3-Akku. Bootzeit ca. 40–60 s.
 - Funktionen: Player-Fernsteuerung, Sleep-Timer, Token anlernen/bearbeiten/löschen, Hörstand je Token,
   Einstellungen (Lautstärke, Verhalten beim Auflegen/Abnehmen, LEDs, Energie), Kindermodus mit Eltern-PIN.
-- Aktueller Stand: App läuft nur gegen eine simulierte Demo-Box mit ausgedachtem Katalog. Echte
-  Box-Verbindung, BLE-Einrichtung und Spotify-Login fehlen noch.
-- Test-App (`testapp/`, Expo, seit 2026-11-01): dieselbe Demo-Box plus Live-Test des Hardware-Testaufbaus.
+- Aktueller Stand (2026-11-01): box-daemon und App sind verbunden und am PC im Simulationsmodus durchgetestet;
+  am echten Pi noch nicht. Es fehlen noch: Spotify-Suche (Login), BLE-Einrichtung, Akku-Anbindung, lokale Medien.
+- Haupt-App seit 2026-11-01: Expo-App in `testapp/` (die Flutter-App ruht). Verbindet sich mit dem box-daemon
+  (Token anlernen per Spotify-Link, Wiedergabe, Sleep-Timer, Kindermodus mit PIN), dazu Demo-Box und Hardware-Test.
   Gestaltung nach dem Skill `apple-design` (Federn, 1:1-Gesten, Material, reduzierte Bewegung). Läuft per Expo Go
   auf dem Handy, weil auf dem Entwicklungs-PC weder JDK noch Visual Studio installiert sind.
 - Quellen: Spotify und lokale Audiodateien auf der Box (DRM-frei, per App hochgeladen; funktionieren offline).

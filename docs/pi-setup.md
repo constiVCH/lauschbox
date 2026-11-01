@@ -86,7 +86,8 @@ sudo systemctl daemon-reload && sudo systemctl enable --now go-librespot
 curl -s localhost:3678/status
 ```
 
-## 4. Spotify-Developer-App (nur für die Suche)
+## 4. Spotify-Developer-App (nur für die Suche, später)
+Noch nicht nötig: Token lernt man vorerst per Spotify-Link an, das geht ohne Login.
 Zum Abspielen reicht go-librespot. Die Web API brauchen wir nur für die Suche beim Anlernen von Token.
 1. https://developer.spotify.com/dashboard → App anlegen, „Web API“ auswählen.
 2. Redirect URI: `http://127.0.0.1:8888/callback` (Spotify akzeptiert nur Loopback-IP, nicht `localhost`).
@@ -121,3 +122,50 @@ python spikes/buttons_test.py
 python spikes/leds_test.py
 python spikes/battery_test.py   # vorher pisugar-server installieren (siehe PiSugar-Doku)
 ```
+
+## 7. box-daemon (die eigentliche Box-Software)
+Voraussetzung: Die Hardware-Tests aus Schritt 6 laufen, go-librespot ist angemeldet (Schritt 3).
+Hardware-Testserver und box-daemon nutzen beide Port 8080, also immer nur einen von beiden starten.
+
+```
+cd ~/lauschbox/box          # Pfad zum geklonten Repo
+. .venv/bin/activate
+pip install -r requirements.txt
+python -m lauschbox
+```
+Im Log steht für NFC, Taster und LEDs jeweils OK oder FEHLER. Dann in der App „Mit Box verbinden“ mit der IP des Pi.
+
+**Als Dienst** `/etc/systemd/system/lauschbox.service` (`<user>` und Pfad ersetzen):
+```
+[Unit]
+Description=Lauschbox box-daemon
+After=network.target sound.target go-librespot.service
+Wants=go-librespot.service
+
+[Service]
+User=<user>
+WorkingDirectory=/home/<user>/lauschbox/box
+ExecStart=/home/<user>/lauschbox/box/.venv/bin/python -m lauschbox
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+```
+sudo systemctl daemon-reload && sudo systemctl enable --now lauschbox
+journalctl -u lauschbox -f        # Log mitlesen
+```
+Der Benutzer muss in den Gruppen `gpio`, `i2c` und `spi` sein (bei Raspberry Pi OS ist der erste Benutzer das schon).
+Daten (Token, Hörstand, Einstellungen) liegen in `~/.local/share/lauschbox/lauschbox.db`.
+
+**Am PC ohne Hardware** (zum Ausprobieren der App):
+```
+cd box
+python -m venv .venv
+.venv\Scripts\activate            # Windows; Linux/Mac: . .venv/bin/activate
+pip install aiohttp zeroconf
+python -m lauschbox --fake
+```
+In der App dann die IP des PCs eintragen. Token legt man im Tab „Box“ per Ziehen auf. Unter Windows muss die Firewall
+Port 8080 im privaten Netz erlauben (wie bei Expo: `New-NetFirewallRule -DisplayName "Lauschbox 8080" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow -Profile Private`).

@@ -1,33 +1,41 @@
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { useBox } from '@/box/BoxContext';
+import type { Token } from '@/box/types';
 import { BackToStart } from '@/components/BackToStart';
 import { Cover } from '@/components/Cover';
 import { LedRing } from '@/components/LedRing';
 import { Screen } from '@/components/Screen';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Pill, Section, Txt } from '@/components/ui';
-import { formatTime, mediumByUri, totalSeconds } from '@/demo/catalog';
-import { demoBox, isBlank, useDemoBox, type Token } from '@/demo/demoBox';
+import { formatTime } from '@/demo/catalog';
 import { radius, space, useColors } from '@/theme';
 
 export default function TokensTab() {
-  const s = useDemoBox();
-
+  const { view: s, api } = useBox();
   return (
     <Screen
       title="Token"
       subtitle={`${s.tokens.length} angelernt`}
       leading={<BackToStart />}
-      trailing={!s.learning ? <Button label="Neu" icon="add" compact kind="secondary" onPress={demoBox.startLearn} /> : undefined}
+      trailing={!s.learning ? <Button label="Neu" icon="add" compact kind="secondary" onPress={api.startLearn} /> : undefined}
     >
       {s.learning && <LearnCard />}
       <Section title="Auf der Box gespeichert" footer="Die Zuordnung Token → Inhalt liegt auf der Box, nicht auf dem Token.">
-        <View style={{ gap: space.sm }}>
-          {s.tokens.map((t) => (
-            <TokenCard key={t.uid} token={t} placed={s.placed === t.uid} playing={s.playing} />
-          ))}
-        </View>
+        {s.tokens.length === 0 && !s.learning ? (
+          <Card style={styles.empty}>
+            <Txt variant="callout" color="secondary" style={{ textAlign: 'center' }}>
+              Noch keine Token. Tipp auf „Neu“ und leg einen leeren Token auf die Box.
+            </Txt>
+          </Card>
+        ) : (
+          <View style={{ gap: space.sm }}>
+            {s.tokens.map((t) => (
+              <TokenCard key={t.uid} token={t} placed={s.placed === t.uid} playing={s.loadedUid === t.uid && !!s.now?.playing} />
+            ))}
+          </View>
+        )}
       </Section>
     </Screen>
   );
@@ -35,8 +43,9 @@ export default function TokensTab() {
 
 function LearnCard() {
   const c = useColors();
-  const s = useDemoBox();
-  const blank = s.tray.find((uid) => isBlank(s, uid));
+  const { view: s, api } = useBox();
+  const known = new Set(s.tokens.map((t) => t.uid));
+  const blank = s.sim?.tray.find((uid) => !known.has(uid));
   return (
     <Section title="Neuer Token">
       <Card style={styles.learn}>
@@ -44,11 +53,11 @@ function LearnCard() {
         <View style={{ flex: 1, gap: space.sm }}>
           <Txt variant="headline">Leg einen leeren Token auf die Box.</Txt>
           <Txt variant="footnote" color="secondary">
-            Der Ring pulsiert blau, bis die Box den Token erkennt. In der Demo geht das auch im Tab „Box“ per Ziehen.
+            Der Ring pulsiert blau, bis die Box den Token erkennt. Danach wählst du hier den Inhalt aus.
           </Txt>
           <View style={styles.learnActions}>
-            {blank && <Button label="Leeren Token auflegen" compact onPress={() => demoBox.place(blank)} />}
-            <Button label="Abbrechen" compact kind="plain" onPress={demoBox.cancelLearn} />
+            {blank && api.place && <Button label="Leeren Token auflegen" compact onPress={() => api.place?.(blank)} />}
+            <Button label="Abbrechen" compact kind="plain" onPress={api.cancelLearn} />
           </View>
         </View>
       </Card>
@@ -58,20 +67,18 @@ function LearnCard() {
 
 function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; playing: boolean }) {
   const c = useColors();
-  const m = mediumByUri(token.mediumUri);
-  if (!m) return null;
-  const done = m.tracks.slice(0, token.progress.track).reduce((a, t) => a + t.seconds, 0) + token.progress.position;
-  const total = totalSeconds(m);
-  const frac = token.progress.finished ? 1 : total ? done / total : 0;
+  const m = token.medium;
+  const p = token.progress;
+  const started = p.positionS > 0 || (p.trackNumber ?? 1) > 1;
   const status = placed
     ? playing
       ? { text: 'Läuft', color: c.success }
-      : { text: 'Liegt auf, pausiert', color: c.warning }
-    : token.progress.finished
+      : { text: 'Liegt auf', color: c.warning }
+    : p.finished
       ? { text: 'Fertig gehört', color: c.textSecondary }
-      : done > 0
-        ? { text: `Noch ${formatTime(total - done)}`, color: c.textSecondary }
-        : null;
+      : null;
+  const progressText =
+    !p.finished && started ? `${p.trackName ?? `Titel ${p.trackNumber}`} · ${formatTime(p.positionS)}` : null;
 
   return (
     <Tap
@@ -79,7 +86,7 @@ function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; 
       scaleTo={0.98}
       haptic={null}
       accessibilityRole="button"
-      accessibilityLabel={`${token.name}, ${m.title}${status ? `, ${status.text}` : ''}`}
+      accessibilityLabel={`${token.name}, ${m.title}${status ? `, ${status.text}` : ''}${progressText ? `, ${progressText}` : ''}`}
       accessibilityHint="Token bearbeiten"
     >
       <Card style={styles.token}>
@@ -93,12 +100,20 @@ function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; 
               {token.name}
             </Txt>
             <Txt variant="footnote" color="secondary" numberOfLines={1}>
-              {m.kind} · {m.title}
+              {m.kindLabel} · {m.title}
             </Txt>
           </View>
-          <View style={[styles.bar, { backgroundColor: c.fillStrong }]}>
-            <View style={[styles.barFill, { width: `${Math.round(frac * 100)}%`, backgroundColor: token.color }]} />
-          </View>
+          {p.fraction !== undefined ? (
+            <View style={[styles.bar, { backgroundColor: c.fillStrong }]}>
+              <View style={[styles.barFill, { width: `${Math.round(p.fraction * 100)}%`, backgroundColor: token.color }]} />
+            </View>
+          ) : (
+            progressText && (
+              <Txt variant="footnote" color="tertiary" numberOfLines={1}>
+                Weiter bei {progressText}
+              </Txt>
+            )
+          )}
           {status && <Pill text={status.text} color={status.color} />}
         </View>
       </Card>
@@ -107,6 +122,7 @@ function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; 
 }
 
 const styles = StyleSheet.create({
+  empty: { paddingVertical: space.xl },
   learn: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   learnActions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
   token: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md },

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { ActiveBoxProvider } from '@/box/BoxContext';
 import { useColors, useIsDark } from '@/theme';
 
 export default function RootLayout() {
@@ -10,15 +11,14 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.bg }}>
       <StatusBar style={dark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="demo" />
-        <Stack.Screen name="hardware" />
-        <Stack.Screen
-          name="token-edit"
-          options={{ presentation: 'modal', headerShown: false, contentStyle: { backgroundColor: c.bg } }}
-        />
-      </Stack>
+      <ActiveBoxProvider>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="box" />
+          <Stack.Screen name="hardware" />
+          <Stack.Screen name="token-edit" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
+        </Stack>
+      </ActiveBoxProvider>
     </GestureHandlerRootView>
   );
 }

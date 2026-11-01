@@ -5,7 +5,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSprin
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { demoBox, useDemoBox } from '@/demo/demoBox';
+import { useBox } from '@/box/BoxContext';
 import { radius, space, springs, useColors } from '@/theme';
 
 import { TAB_BAR_SPACE } from './Screen';
@@ -21,7 +21,9 @@ const VISIBLE_MS = 3800;
 export function NoticeToast() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { notice } = useDemoBox();
+  const { view, api } = useBox();
+  const notice = view.notice;
+  const dismiss = api.dismissNotice;
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
 
@@ -29,11 +31,11 @@ export function NoticeToast() {
     (id: number) => {
       const done = (finished?: boolean) => {
         'worklet';
-        if (finished) scheduleOnRN(demoBox.dismissNotice, id);
+        if (finished) scheduleOnRN(dismiss, id);
       };
       progress.set(reduceMotion ? withTiming(0, { duration: 180 }, done) : withSpring(0, springs.ui, done));
     },
-    [progress, reduceMotion],
+    [progress, reduceMotion, dismiss],
   );
 
   const id = notice?.id;

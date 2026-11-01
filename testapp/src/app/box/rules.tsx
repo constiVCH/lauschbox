@@ -1,67 +1,101 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 
+import { useBox } from '@/box/BoxContext';
+import type { KidView } from '@/box/types';
 import { BackToStart } from '@/components/BackToStart';
 import { Screen } from '@/components/Screen';
 import { Slider } from '@/components/Slider';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Row, Section, SwitchRow, Txt } from '@/components/ui';
-import { demoBox, useDemoBox } from '@/demo/demoBox';
 import { space, useColors } from '@/theme';
 
-const DEMO_PIN = '1234';
-
-// Für die Dauer der Sitzung entsperrt, wie bei einer echten App nach erfolgreicher PIN
-let unlockedThisSession = false;
+// Für die Dauer der Sitzung entsperrt (pro Box), wie bei einer echten App nach erfolgreicher PIN
+const unlocked = new Map<string, string>();
 
 export default function RulesTab() {
-  const [unlocked, setUnlocked] = useState(unlockedThisSession);
-  const lock = (v: boolean) => {
-    unlockedThisSession = v;
-    setUnlocked(v);
+  const { view } = useBox();
+  const key = `${view.kind}:${view.name}`;
+  const [pin, setPin] = useState<string | null>(unlocked.get(key) ?? null);
+  const lock = (p: string | null) => {
+    if (p) unlocked.set(key, p);
+    else unlocked.delete(key);
+    setPin(p);
   };
   return (
     <Screen
       title="Kindermodus"
-      subtitle={unlocked ? 'Regeln für die Box' : 'Mit Eltern-PIN geschützt'}
+      subtitle={pin ? 'Regeln für die Box' : 'Mit Eltern-PIN geschützt'}
       leading={<BackToStart />}
-      trailing={unlocked ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(false)} /> : undefined}
+      trailing={pin ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
     >
-      {unlocked ? <Rules /> : <PinGate onUnlock={() => lock(true)} />}
+      {pin ? <Rules pin={pin} /> : <PinGate onUnlock={lock} />}
     </Screen>
   );
 }
 
-function Rules() {
+function Rules({ pin }: { pin: string }) {
   const c = useColors();
-  const s = useDemoBox();
+  const { view: s, api } = useBox();
   const k = s.kid;
+  // Regler zeigen beim Ziehen den lokalen Wert; gesendet wird beim Loslassen
+  const [draft, setDraft] = useState<Partial<KidView>>({});
+  const kid = { ...k, ...draft };
+  const set = (patch: Partial<KidView>) => {
+    setDraft({});
+    api.setKid(patch, pin);
+  };
+
   return (
     <>
       <Section footer="Gilt sofort auf der Box, auch ohne dass die App offen ist.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-          <SwitchRow first title="Kindermodus" icon="shield-checkmark" iconColor={c.success} value={k.enabled} onChange={(v) => demoBox.setKid({ enabled: v })} />
+          <SwitchRow first title="Kindermodus" icon="shield-checkmark" iconColor={c.success} value={k.enabled} onChange={(v) => set({ enabled: v })} />
         </Card>
       </Section>
 
       <View style={{ opacity: k.enabled ? 1 : 0.45 }} pointerEvents={k.enabled ? 'auto' : 'none'}>
         <Section title="Lautstärke" footer="Die Lauter-Taste stoppt an dieser Grenze. Der Regler im Tab „Box“ gibt dort nur noch federnd nach.">
           <Card style={{ gap: space.lg }}>
-            <LabeledSlider title="Maximal" value={k.maxVolume} min={20} max={100} onChange={(v) => demoBox.setKid({ maxVolume: v })} />
-            <LabeledSlider title="Zur Schlafenszeit" value={k.bedtimeMaxVolume} min={10} max={k.maxVolume} onChange={(v) => demoBox.setKid({ bedtimeMaxVolume: v })} />
+            <LabeledSlider
+              title="Maximal"
+              value={kid.maxVolume}
+              min={20}
+              max={100}
+              onChange={(v) => setDraft((d) => ({ ...d, maxVolume: v }))}
+              onEnd={(v) => set({ maxVolume: v })}
+            />
+            <LabeledSlider
+              title="Zur Schlafenszeit"
+              value={Math.min(kid.bedtimeMaxVolume, kid.maxVolume)}
+              min={10}
+              max={kid.maxVolume}
+              onChange={(v) => setDraft((d) => ({ ...d, bedtimeMaxVolume: v }))}
+              onEnd={(v) => set({ bedtimeMaxVolume: v })}
+            />
           </Card>
         </Section>
 
-        <Section title="Schlafenszeit" footer="Neue Token starten nicht, ein laufender Titel spielt zu Ende. Zum Ausprobieren: Tab „Box“ → Simulation → Abends.">
+        <Section
+          title="Schlafenszeit"
+          footer={
+            s.demo
+              ? 'Neue Token starten nicht, ein laufender Titel spielt zu Ende. Zum Ausprobieren: Tab „Box“ → Simulation → Abends.'
+              : 'Neue Token starten nicht, ein laufender Titel spielt zu Ende, die LEDs werden gedimmt. Die Box nutzt ihre eigene Uhr.'
+          }
+        >
           <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-            <Row first title="19:30 bis 7:00" subtitle="In der Demo fest eingestellt" icon="moon" iconColor="#7B61FF" />
+            {!s.demo && (
+              <SwitchRow first title="Schlafenszeit" icon="moon" iconColor="#7B61FF" value={k.bedtimeEnabled} onChange={(v) => set({ bedtimeEnabled: v })} />
+            )}
+            <Row first={!!s.demo} title={`${k.bedtimeFrom} bis ${k.bedtimeTo}`} subtitle={s.demo ? 'In der Demo fest eingestellt' : undefined} icon="time" iconColor="#7B61FF" />
             <Row
-              title={s.bedtime ? 'Gerade Schlafenszeit' : 'Gerade keine Schlafenszeit'}
+              title={s.bedtimeActive ? 'Gerade Schlafenszeit' : 'Gerade keine Schlafenszeit'}
               icon="timer"
-              iconColor={s.bedtime ? '#7B61FF' : c.textTertiary}
+              iconColor={s.bedtimeActive ? '#7B61FF' : c.textTertiary}
             />
           </Card>
         </Section>
@@ -75,7 +109,7 @@ function Rules() {
               icon="stop-circle"
               iconColor={c.accent}
               value={k.noAutoplay}
-              onChange={(v) => demoBox.setKid({ noAutoplay: v })}
+              onChange={(v) => set({ noAutoplay: v })}
             />
             <SwitchRow
               title="Nur bekannte Token"
@@ -83,7 +117,7 @@ function Rules() {
               icon="albums"
               iconColor={c.learn}
               value={k.knownTokensOnly}
-              onChange={(v) => demoBox.setKid({ knownTokensOnly: v })}
+              onChange={(v) => set({ knownTokensOnly: v })}
             />
           </Card>
         </Section>
@@ -92,7 +126,21 @@ function Rules() {
   );
 }
 
-function LabeledSlider({ title, value, min, max, onChange }: { title: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+function LabeledSlider({
+  title,
+  value,
+  min,
+  max,
+  onChange,
+  onEnd,
+}: {
+  title: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+  onEnd: (v: number) => void;
+}) {
   return (
     <View style={{ gap: space.sm }}>
       <View style={styles.sliderHead}>
@@ -101,36 +149,47 @@ function LabeledSlider({ title, value, min, max, onChange }: { title: string; va
           {Math.round(value)} %
         </Txt>
       </View>
-      <Slider label={`Lautstärke ${title}`} value={value} min={min} max={max} step={5} onChange={onChange} format={(v) => `${Math.round(v)} %`} />
+      <Slider label={`Lautstärke ${title}`} value={value} min={min} max={max} step={5} onChange={onChange} onEnd={onEnd} format={(v) => `${Math.round(v)} %`} />
     </View>
   );
 }
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
+function PinGate({ onUnlock }: { onUnlock: (pin: string) => void }) {
   const c = useColors();
+  const { view, api } = useBox();
   const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const shake = useSharedValue(0);
   const reduceMotion = useReducedMotion();
 
-  const press = (d: string) => {
-    if (pin.length >= 4) return;
+  const wrong = (text: string) => {
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setError(text);
+    // Kopfschütteln: kräftiger Anstoß, die Feder schwingt aus
+    if (!reduceMotion) {
+      shake.set(0);
+      shake.set(withSpring(0, { dampingRatio: 0.25, duration: 500, velocity: 900 }));
+    }
+    setTimeout(() => setPin(''), 450);
+  };
+
+  const press = async (d: string) => {
+    if (pin.length >= 4 || checking) return;
     const next = pin + d;
-    setError(false);
+    setError(null);
     setPin(next);
     if (next.length < 4) return;
-    if (next === DEMO_PIN) {
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onUnlock();
-    } else {
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(true);
-      // Kopfschütteln: kräftiger Anstoß, die Feder schwingt aus
-      if (!reduceMotion) {
-        shake.set(0);
-        shake.set(withSpring(0, { dampingRatio: 0.25, duration: 500, velocity: 900 }));
-      }
-      setTimeout(() => setPin(''), 450);
+    setChecking(true);
+    try {
+      if (await api.verifyPin(next)) {
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onUnlock(next);
+      } else wrong('Falsche PIN. Nochmal versuchen.');
+    } catch (e) {
+      wrong(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -145,13 +204,23 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
         {[0, 1, 2, 3].map((i) => (
           <View
             key={i}
-            style={[styles.dot, { borderColor: error ? c.danger : c.textSecondary }, i < pin.length && { backgroundColor: error ? c.danger : c.text, borderColor: 'transparent' }]}
+            style={[
+              styles.dot,
+              { borderColor: error ? c.danger : c.textSecondary },
+              i < pin.length && { backgroundColor: error ? c.danger : c.text, borderColor: 'transparent' },
+            ]}
           />
         ))}
       </Animated.View>
-      <Txt variant="footnote" color={error ? c.danger : 'tertiary'} accessibilityLiveRegion="polite">
-        {error ? 'Falsche PIN. Nochmal versuchen.' : 'Demo-PIN: 1234'}
-      </Txt>
+      <View style={{ minHeight: 20, alignItems: 'center' }}>
+        {checking ? (
+          <ActivityIndicator color={c.textSecondary} />
+        ) : (
+          <Txt variant="footnote" color={error ? c.danger : 'tertiary'} accessibilityLiveRegion="polite" style={{ textAlign: 'center' }}>
+            {error ?? (view.kind === 'demo' ? 'Demo-PIN: 1234' : 'Ab Werk 1234. Bitte bald ändern.')}
+          </Txt>
+        )}
+      </View>
       <View style={styles.pad}>
         {keys.map((k, i) =>
           k === '' ? (

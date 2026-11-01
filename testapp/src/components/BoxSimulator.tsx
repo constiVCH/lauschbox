@@ -14,8 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { mediumByUri } from '@/demo/catalog';
-import { demoBox, isBlank, useDemoBox, type BoxState } from '@/demo/demoBox';
+import { useBox } from '@/box/BoxContext';
+import type { BoxApi, BoxView } from '@/box/types';
 import { radius, space, springs, useColors } from '@/theme';
 
 import { TokenDisc } from './Cover';
@@ -39,21 +39,18 @@ function haptic(kind: 'lift' | 'place' | 'warn') {
   else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 }
 
-function placeToken(uid: string) {
-  const result = demoBox.place(uid);
-  haptic(result === 'started' || result === 'learned' ? 'place' : 'warn');
-}
-
 /**
  * Die Box zum Anfassen: Token aus der Ablage auf die Mulde ziehen (oder antippen), Taster drücken.
- * Der Ring zeigt, was die echte Box zeigen würde.
+ * Der Ring zeigt, was die Box gerade zeigt. Bei der echten Box gibt es die Ablage nur im Simulationsmodus
+ * (box-daemon mit --fake); sonst liegt der Token wirklich auf, und die Taster wirken als Fernbedienung.
  */
 export function BoxSimulator({ onDragChange }: { onDragChange?: (dragging: boolean) => void }) {
   const c = useColors();
-  const s = useDemoBox();
+  const { view: s, api } = useBox();
   const well = useAnimatedRef<Animated.View>();
   const placed = s.placed ? s.tokens.find((t) => t.uid === s.placed) : null;
-  const placedEmoji = placed ? mediumByUri(placed.mediumUri)?.emoji : undefined;
+  const playing = s.now?.playing ?? false;
+  const canPlace = !!s.sim && !!api.place;
 
   return (
     <View style={{ gap: space.lg }}>
@@ -61,52 +58,73 @@ export function BoxSimulator({ onDragChange }: { onDragChange?: (dragging: boole
         <Animated.View ref={well} style={styles.wellWrap} collapsable={false}>
           <LedRing mode={s.led.mode} color={s.led.color} fill={s.led.fill} size={RING} well={c.boxWell} />
           {s.placed && (
-            <PlacedToken key={s.placed} well={well} color={placed?.color} emoji={placedEmoji} blank={!placed} />
+            <PlacedToken
+              key={s.placed}
+              well={well}
+              color={placed?.color}
+              emoji={placed?.medium.emoji}
+              coverUrl={placed?.medium.coverUrl}
+              blank={!placed}
+              onRemove={canPlace ? api.remove : undefined}
+            />
           )}
         </Animated.View>
         <View style={styles.front}>
           <Grille />
           <View style={styles.keys}>
-            <BoxKey icon="remove" label="Leiser" onPress={() => demoBox.boxButton('minus')} />
-            <BoxKey icon={s.playing ? 'pause' : 'play'} label={s.playing ? 'Pause' : 'Abspielen'} onPress={() => demoBox.boxButton('play')} big />
-            <BoxKey icon="add" label="Lauter" onPress={() => demoBox.boxButton('plus')} />
+            <BoxKey icon="remove" label="Leiser" onPress={() => api.boxButton('minus')} />
+            <BoxKey icon={playing ? 'pause' : 'play'} label={playing ? 'Pause' : 'Abspielen'} onPress={() => api.boxButton('play')} big />
+            <BoxKey icon="add" label="Lauter" onPress={() => api.boxButton('plus')} />
           </View>
         </View>
       </View>
 
-      <View style={{ gap: space.sm }}>
-        <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }}>
-          {s.learning ? 'Lernmodus: Leg einen leeren Token auf die Box.' : 'Token auf die Mulde ziehen oder antippen'}
-        </Txt>
-        <View style={styles.tray}>
-          {s.tray.map((uid) =>
-            uid === s.placed ? (
-              <View key={uid} style={[styles.slot, { borderColor: c.fillStrong }]} />
-            ) : (
-              <DraggableToken key={uid} uid={uid} state={s} well={well} onDragChange={onDragChange} />
-            ),
-          )}
+      {s.sim && canPlace ? (
+        <View style={{ gap: space.sm }}>
+          <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }}>
+            {s.learning ? 'Lernmodus: Leg einen leeren Token auf die Box.' : 'Token auf die Mulde ziehen oder antippen'}
+          </Txt>
+          <View style={styles.tray}>
+            {s.sim.tray.map((uid) =>
+              uid === s.placed ? (
+                <View key={uid} style={[styles.slot, { borderColor: c.fillStrong }]} />
+              ) : (
+                <DraggableToken key={uid} uid={uid} view={s} api={api} well={well} onDragChange={onDragChange} />
+              ),
+            )}
+          </View>
         </View>
-      </View>
+      ) : (
+        <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }}>
+          {s.learning
+            ? 'Lernmodus: Leg einen leeren Token auf die Box.'
+            : placed
+              ? `„${placed.name}“ liegt auf. Die Taster oben bedienen die Box aus der Ferne.`
+              : s.placed
+                ? 'Ein unbekannter Token liegt auf.'
+                : 'Leg einen Token auf die Box. Die Taster oben bedienen sie aus der Ferne.'}
+        </Txt>
+      )}
     </View>
   );
 }
 
 function DraggableToken({
   uid,
-  state,
+  view,
+  api,
   well,
   onDragChange,
 }: {
   uid: string;
-  state: BoxState;
+  view: BoxView;
+  api: BoxApi;
   well: AnimatedRef<Animated.View>;
   onDragChange?: (dragging: boolean) => void;
 }) {
   const c = useColors();
-  const token = state.tokens.find((t) => t.uid === uid);
-  const blank = isBlank(state, uid);
-  const emoji = token ? mediumByUri(token.mediumUri)?.emoji : undefined;
+  const token = view.tokens.find((t) => t.uid === uid);
+  const blank = !token;
   const label = token ? `Token „${token.name}“` : 'Leerer Token';
 
   const x = useSharedValue(0);
@@ -116,7 +134,10 @@ function DraggableToken({
 
   const setDragging = (d: boolean) => onDragChange?.(d);
   const liftFeedback = () => haptic('lift');
-  const drop = () => placeToken(uid);
+  const drop = () => {
+    api.place?.(uid);
+    haptic(token || view.learning ? 'place' : 'warn');
+  };
 
   const pan = usePanGesture({
     activateAfterLongPress: 140,
@@ -195,14 +216,28 @@ function DraggableToken({
         accessibilityHint="Legt den Token auf die Box"
         onAccessibilityTap={drop}
       >
-        <TokenDisc size={CHIP} color={blank ? c.textTertiary : token?.color} emoji={emoji} blank={blank} />
+        <TokenDisc size={CHIP} color={blank ? c.textTertiary : token?.color} emoji={token?.medium.emoji} coverUrl={token?.medium.coverUrl} blank={blank} />
       </Animated.View>
     </GestureDetector>
   );
 }
 
 /** Token in der Mulde. Antippen oder herausziehen nimmt ihn ab. */
-function PlacedToken({ well, color, emoji, blank }: { well: AnimatedRef<Animated.View>; color?: string; emoji?: string; blank: boolean }) {
+function PlacedToken({
+  well,
+  color,
+  emoji,
+  coverUrl,
+  blank,
+  onRemove,
+}: {
+  well: AnimatedRef<Animated.View>;
+  color?: string;
+  emoji?: string;
+  coverUrl?: string | null;
+  blank: boolean;
+  onRemove?: () => void;
+}) {
   const c = useColors();
   const x = useSharedValue(0);
   const y = useSharedValue(0);
@@ -211,9 +246,11 @@ function PlacedToken({ well, color, emoji, blank }: { well: AnimatedRef<Animated
     appear.set(withSpring(1, springs.ui));
   }, [appear]);
 
-  const remove = () => demoBox.remove();
+  const remove = () => onRemove?.();
 
+  const movable = !!onRemove;
   const pan = usePanGesture({
+    enabled: movable,
     minDistance: 8,
     onUpdate: (e) => {
       'worklet';
@@ -236,6 +273,7 @@ function PlacedToken({ well, color, emoji, blank }: { well: AnimatedRef<Animated
     },
   });
   const tap = useTapGesture({
+    enabled: movable,
     onDeactivate: () => {
       'worklet';
       scheduleOnRN(remove);
@@ -252,12 +290,12 @@ function PlacedToken({ well, color, emoji, blank }: { well: AnimatedRef<Animated
       <Animated.View
         style={[styles.placed, style]}
         accessible
-        accessibilityRole="button"
+        accessibilityRole={movable ? 'button' : 'image'}
         accessibilityLabel={blank ? 'Leerer Token liegt auf der Box' : 'Token liegt auf der Box'}
-        accessibilityHint="Nimmt den Token ab"
-        onAccessibilityTap={remove}
+        accessibilityHint={movable ? 'Nimmt den Token ab' : undefined}
+        onAccessibilityTap={movable ? remove : undefined}
       >
-        <TokenDisc size={CHIP + 8} color={blank ? c.textTertiary : color} emoji={emoji} blank={blank} />
+        <TokenDisc size={CHIP + 8} color={blank ? c.textTertiary : color} emoji={emoji} coverUrl={coverUrl} blank={blank} />
       </Animated.View>
     </GestureDetector>
   );

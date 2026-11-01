@@ -14,7 +14,7 @@
 │   ├─ MediaLibrary    lokale Medien auf der SD-Karte         │
 │   ├─ Rules           Kindermodus, Max-Lautstärke, Timer     │
 │   ├─ Store (SQLite)  Tokens, Medien, Fortschritt, Einst.    │
-│   └─ API (FastAPI)   REST + WebSocket, mDNS-Announce        │
+│   └─ API (aiohttp)   REST + WebSocket, mDNS-Announce        │
 │  go-librespot        Connect-Gerät + API auf localhost:3678 │
 │  mpv                 lokale Wiedergabe, IPC /run/mpv.sock   │
 │  BLE-Provisioning    WLAN-Daten aus der App empfangen       │
@@ -39,12 +39,13 @@
 4. Token abnehmen → Pause (einstellbar), Stand speichern.
 
 **Token anlernen (App)**
-1. App: „Neuer Token“ → Box geht in Lernmodus (LED blau pulsierend).
-2. Token auflegen → Box sendet UID per WebSocket.
-3. App: Quelle wählen
-   - Spotify-Suche (läuft über die Box-API) → Album/Playlist/Hörbuch wählen, oder
-   - lokales Medium von der Box wählen bzw. direkt neu hochladen.
-4. Name + Farbe vergeben → speichern.
+1. App: „Neuer Token“ → Box geht in Lernmodus (LED blau pulsierend). Liegt schon ein leerer Token auf, gilt er sofort.
+2. Token auflegen → Box meldet die UID im Zustand (`learned_uid`), die App öffnet das Blatt „Neuer Token“.
+3. App: Inhalt wählen
+   - **umgesetzt:** Spotify-Link einfügen (in Spotify: Teilen → Link kopieren). Die Box macht daraus die URI und holt
+     Titel und Cover über den öffentlichen oEmbed-Dienst von Spotify, ganz ohne Login.
+   - später: Spotify-Suche (braucht den Web-API-Login, siehe unten), lokales Medium wählen bzw. hochladen.
+4. Name + Farbe vergeben → speichern. Liegt der neue Token noch auf, spielt er sofort (Bestätigung; Regeln gelten wie beim Auflegen).
 
 **Spotify-Login**
 Zwei getrennte Logins:
@@ -164,16 +165,36 @@ Der Zero W hat einen Kern (ARMv6, 1 GHz) und 512 MB RAM. Daraus folgt:
 - **App:** Prozentanzeige, „lädt“/„Netz“, geschätzte Restlaufzeit.
 - Unter 5 %: Stand speichern, Ansage/LED-Signal, sauber herunterfahren.
 
-## API-Entwurf (v1)
+## API (v1)
+
+Umgesetzt im box-daemon ([box/lauschbox/api.py](../box/lauschbox/api.py)), Port 8080. Die Box schickt bei jeder
+Änderung ihren kompletten Zustand über den WebSocket; die App spiegelt ihn nur und ruft für Aktionen REST-Endpunkte auf.
 
 ```
-GET    /api/status                 Zustand, aktueller Token, Lautstärke, Akku, online/offline
-WS     /api/events                 token_placed/removed, player, battery, learn
+GET    /api/status                 kompletter Zustand (Player, Token, Lautstärke, Regeln, LED, Hinweis, Hardware)
+WS     /api/events                 {"type": "state", "data": <wie /api/status>} bei jeder Änderung
 GET    /api/tokens                 Liste
-PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, source: spotify|local, uri}
-                                   (uri bei local: local:<media-id>)
+PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, medium: {uri, title, kind, cover_url}}
 DELETE /api/tokens/{uid}
-POST   /api/learn                  Lernmodus starten → nächste UID per WS
+POST   /api/learn                  {active: true|false}
+POST   /api/spotify/resolve        {link} → {uri, title, kind, cover_url} (Teilen-Link, Kurzlink oder spotify:-URI)
+GET    /api/spotify/auth-code      Code für spotify.com/pair, solange go-librespot auf die Anmeldung wartet
+POST   /api/player/{toggle|next|prev}
+POST   /api/player/seek            {position_ms}
+POST   /api/player/volume          {volume} (wird auf die erlaubte Grenze gekappt)
+POST   /api/button                 {name: play_pause|lauter|leiser|lock, press: kurz|lang} (Taster fernbedienen)
+POST   /api/lock                   {locked}
+POST   /api/sleep                  {kind: off|minutes|episode, minutes}
+POST   /api/notice/{id}/dismiss
+PUT    /api/settings               Teiländerung der Einstellungen
+POST   /api/kidmode/verify         {pin} → {ok}
+PUT    /api/kidmode                Teiländerung, Header X-Parent-Pin
+POST   /api/sim/token              {uid|null} Token simulieren (nur mit --fake)
+```
+
+Noch offen (Entwurf):
+
+```
 GET    /api/spotify/search?q=      Proxy zur Spotify-Suche
 POST   /api/spotify/auth           Refresh Token von der App übernehmen
 GET    /api/media                  lokale Medien (Name, Titel, Dauer, Cover-URL, Größe)
@@ -183,7 +204,4 @@ GET    /api/media/{id}/cover       Cover-Bild
 PATCH  /api/media/{id}             umbenennen, Titelreihenfolge ändern
 DELETE /api/media/{id}             Medium löschen (Token darauf werden „ohne Inhalt“)
 GET    /api/storage                Speicher frei/belegt
-GET/PUT /api/settings              allgemeine Einstellungen
-GET/PUT /api/kidmode               Kindermodus (PIN-geschützt)
-POST   /api/player/{play|pause|volume}
 ```

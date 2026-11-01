@@ -2,19 +2,30 @@ import { router, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 
+import { RequireBox, useBox } from '@/box/BoxContext';
 import { NoticeToast } from '@/components/NoticeToast';
 import { TabBar } from '@/components/TabBar';
-import { useDemoBox } from '@/demo/demoBox';
 import { useColors } from '@/theme';
 
-export default function DemoLayout() {
+/** Tabs für eine Box: Demo oder echte Box, je nachdem, was auf dem Startbildschirm gewählt wurde. */
+export default function BoxLayout() {
+  return (
+    <RequireBox>
+      <BoxTabs />
+    </RequireBox>
+  );
+}
+
+function BoxTabs() {
   const c = useColors();
-  const { learnedUid } = useDemoBox();
+  const { view } = useBox();
+  const learnedUid = view.learnedUid;
 
   // Leerer Token im Lernmodus erkannt → direkt den Inhalt auswählen (egal, in welchem Tab man gerade ist)
   useEffect(() => {
     if (learnedUid) router.push({ pathname: '/token-edit', params: { uid: learnedUid, isNew: '1' } });
   }, [learnedUid]);
+
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg } }}>
