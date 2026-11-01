@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Lauschbox Test",
+    "slug": "lauschbox-testapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "de.lauschbox.testapp"
+    },
+    "android": {
+      "package": "de.lauschbox.testapp",
+      "adaptiveIcon": {
+        "backgroundColor": "#1B2333",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-image",
+      "expo-font"
+    ],
+    "scheme": "lauschbox",
+    "backgroundColor": "#1B2333",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
