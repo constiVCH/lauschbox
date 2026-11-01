@@ -54,17 +54,20 @@ nach Anleitung nach und richten die App selbst ein.
   Einstellungen (Lautstärke, Verhalten beim Auflegen/Abnehmen, LEDs, Energie), Kindermodus mit Eltern-PIN.
 - Aktueller Stand: App läuft nur gegen eine simulierte Demo-Box mit ausgedachtem Katalog. Echte
   Box-Verbindung, BLE-Einrichtung und Spotify-Login fehlen noch.
+- Test-App (`testapp/`, Expo, seit 2026-11-01): dieselbe Demo-Box plus Live-Test des Hardware-Testaufbaus.
+  Gestaltung nach dem Skill `apple-design` (Federn, 1:1-Gesten, Material, reduzierte Bewegung). Läuft per Expo Go
+  auf dem Handy, weil auf dem Entwicklungs-PC weder JDK noch Visual Studio installiert sind.
 - Quellen: Spotify und lokale Audiodateien auf der Box (DRM-frei, per App hochgeladen; funktionieren offline).
   Spotify-Inhalte sind nie offline verfügbar. Audible bewusst zurückgestellt.
 - Offline: Die Box bootet und spielt lokale Medien ohne Netz. Die App zeigt ehrlich, welche Token offline spielen
   (z. B. Kennzeichnung „offline verfügbar“ in der Token-Liste).
 - Sprache: Deutsch.
-- Name: **Lauschkiste** (seit 2026-10-21; vorher „Hörspielbox“, kurz „Lauschkiste“). Technische IDs: Dart-Paket `lauschkiste`, Bundle-ID/applicationId `de.lauschkiste.app`.
+- Name: **Lauschbox** (seit 2026-11-01; davor „Lauschbox“, „Lauschring“, „Hörspielbox“). Technische IDs: Dart-Paket `lauschbox`, Bundle-ID/applicationId `de.lauschbox.app`, mDNS `_lauschbox._tcp`.
 - Offen: Lizenz, Vertriebsweg. Eine formale Markenprüfung des Namens steht aus.
 
 ## Brand Commitments
 
-- Name: **Lauschkiste** („lauschen“ + Kiste): kindgerecht und bodenständig; das Gehäuse ist eine Kiste mit Lautsprecher und LED-Ring oben.
+- Name: **Lauschbox** („lauschen“ + Box): kindgerecht und bodenständig; das Gehäuse ist eine Kiste mit Lautsprecher und LED-Ring oben.
 - Logo: `brand/logo.svg`. Korallfarbene Kiste in leichter Draufsicht auf Nachtblau: vorne das Lautsprechergitter, oben in einer dunklen Mulde der LED-Ring (12 Punkte, 9 leuchtend) mit dem Token, darüber ein warmer Lichtschein. Alle Icons erzeugt `brand/make_logo.py`.
 - Stimme: deutsch, direkt, für Erwachsene geschrieben.
 

@@ -1,6 +1,6 @@
-<p align="center"><img src="brand/logo.svg" width="128" alt="Lauschkiste-Logo"></p>
+<p align="center"><img src="brand/logo.svg" width="128" alt="Lauschbox-Logo"></p>
 
-# Lauschkiste
+# Lauschbox
 
 Kinder-Audiobox auf Raspberry-Pi-Basis: NFC-Token auflegen → Hörspiel/Musik von Spotify oder von der SD-Karte startet.
 Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt komplett ohne App, lokale Inhalte auch ohne WLAN.
@@ -11,6 +11,7 @@ Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt kom
 |-------------|--------|
 | `box/`      | Software auf dem Pi: `box-daemon` (Python) + Hardware-Testskripte (`box/spikes/`) |
 | `app/`      | Flutter-App, aktuell mit Demo-Box zum Ausprobieren ([app/README.md](app/README.md)) |
+| `testapp/`  | Expo-Test-App: Demo-Box und Live-Test des Testaufbaus, läuft per Expo Go auf dem Handy ([testapp/README.md](testapp/README.md)) |
 | `brand/`    | Logo (SVG/PNG) und Skript, das daraus alle App-Icons erzeugt |
 | `hardware/` | Teileliste, Pinbelegung, später Schaltplan und Gehäuse (STL) |
 | `docs/`     | Konzept, API-Entwurf, Setup-Anleitungen |
@@ -24,6 +25,7 @@ Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt kom
 - **App:** native Flutter-App; Box-Erkennung per mDNS, WLAN-Ersteinrichtung per Bluetooth LE.
 
 Details: [docs/konzept.md](docs/konzept.md), Hardware: [hardware/teileliste.md](hardware/teileliste.md).
+Testaufbau mit dem Pi 3B+, bis der Zero da ist: [hardware/testaufbau-pi3b.md](hardware/testaufbau-pi3b.md).
 
 ## Phasen
 

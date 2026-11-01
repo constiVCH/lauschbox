@@ -32,3 +32,5 @@
 | 5 V / GND | – | 2,4 / 6,9,… | LEDs + Verstärker an 5 V |
 
 PN532: DIP-Schalter auf **I2C** stellen (SEL0=1, SEL1=0).
+
+Schritt-für-Schritt-Verdrahtung mit Stiftleisten-Plan und Tests: [testaufbau-pi3b.md](testaufbau-pi3b.md) (gilt 1:1 auch für den Zero).
