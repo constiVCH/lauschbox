@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'ui/connect_screen.dart';
 
-void main() => runApp(const LauschkisteApp());
+void main() => runApp(const LauschboxApp());
 
-class LauschkisteApp extends StatelessWidget {
-  const LauschkisteApp({super.key});
+class LauschboxApp extends StatelessWidget {
+  const LauschboxApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +15,7 @@ class LauschkisteApp extends StatelessWidget {
           cardTheme: const CardThemeData(clipBehavior: Clip.antiAlias),
         );
     return MaterialApp(
-      title: 'Lauschkiste',
+      title: 'Lauschbox',
       debugShowCheckedModeBanner: false,
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),

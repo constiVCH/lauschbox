@@ -1,7 +1,7 @@
 """Spike: Spotify-Wiedergabe auf dem librespot-Gerät der Box per Web API starten.
 
 Ablauf: OAuth (Authorization Code + PKCE) im Browser -> Refresh Token in .spotify_token.json
--> Gerät "Lauschkiste" suchen -> URI abspielen.
+-> Gerät "Lauschbox" suchen -> URI abspielen.
 """
 import argparse
 import base64
@@ -104,7 +104,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--client-id", required=True)
     parser.add_argument("--uri", required=True, help="z. B. spotify:album:...")
-    parser.add_argument("--device", default="Lauschkiste")
+    parser.add_argument("--device", default="Lauschbox")
     parser.add_argument("--volume", type=int, default=40)
     args = parser.parse_args()
 

@@ -1,4 +1,4 @@
-"""Erzeugt das Lauschkiste-Logo als SVG + PNG und ersetzt die Flutter-Standard-Icons.
+"""Erzeugt das Lauschbox-Logo als SVG + PNG und ersetzt die Flutter-Standard-Icons.
 
 Motiv: Kiste in leichter Draufsicht. Vorne das Lautsprechergitter, oben in einer dunklen Mulde
 der LED-Ring (12 Punkte, 9 leuchten) mit dem Token in der Mitte, darüber ein warmer Lichtschein.
@@ -133,7 +133,7 @@ def svg():
     x0, y0, x1, y1, r = FRONT
     lid = " ".join(f"{x*f:.1f},{y*f:.1f}" for x, y in LID_INNER)
     parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschkiste">',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">',
         "<defs>",
         f'<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{rgb(CORAL)}"/>'
         f'<stop offset="1" stop-color="{rgb(CORAL_DARK)}"/></linearGradient>',

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lauschkiste/box/demo_box.dart';
-import 'package:lauschkiste/models.dart';
+import 'package:lauschbox/box/demo_box.dart';
+import 'package:lauschbox/models.dart';
 
 void main() {
   late DemoBox box;

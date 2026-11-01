@@ -1,11 +1,11 @@
 {
-    "name": "Lauschkiste",
-    "short_name": "Lauschkiste",
+    "name": "Lauschbox",
+    "short_name": "Lauschbox",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1B2333",
     "theme_color": "#1B2333",
-    "description": "Lauschkiste – Token auflegen, Geschichte hören. Eltern-App für die Kinder-Audiobox.",
+    "description": "Lauschbox – Token auflegen, Geschichte hören. Eltern-App für die Kinder-Audiobox.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

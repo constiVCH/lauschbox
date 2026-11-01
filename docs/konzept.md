@@ -19,7 +19,7 @@
 │  mpv                 lokale Wiedergabe, IPC /run/mpv.sock   │
 │  BLE-Provisioning    WLAN-Daten aus der App empfangen       │
 └─────────────────────────────────────────────────────────────┘
-                 ▲ WLAN (mDNS _lauschkiste._tcp) / BLE
+                 ▲ WLAN (mDNS _lauschbox._tcp) / BLE
 ┌────────────────┴────────────────┐
 │ Flutter-App (iOS/Android)       │
 └─────────────────────────────────┘
@@ -76,7 +76,7 @@ Spotify-Inhalte lassen sich **nicht** offline verfügbar machen: go-librespot ka
 verstößt gegen die Nutzungsbedingungen. Wer unterwegs hören will, legt dafür lokale Medien an.
 
 **Was ein lokales Medium ist**
-- Ein Medium = ein Ordner (eine Hörspielfolge, ein Hörbuch, ein Album), z. B. `/var/lib/lauschkiste/media/<id>/`.
+- Ein Medium = ein Ordner (eine Hörspielfolge, ein Hörbuch, ein Album), z. B. `/var/lib/lauschbox/media/<id>/`.
 - Titelreihenfolge: Track-Nummer aus den Tags, sonst Dateiname (natürlich sortiert, `2` vor `10`).
 - Formate: MP3, M4A/AAC, OGG/Opus, FLAC, jeweils **ohne Kopierschutz**. Quellen z. B. selbst gerippte CDs,
   DRM-freie Käufe, eigene Aufnahmen.
@@ -100,7 +100,7 @@ verstößt gegen die Nutzungsbedingungen. Wer unterwegs hören will, legt dafür
 1. **Über die App (Standard):** „Lokales Medium“ → Dateien vom Handy wählen → Upload über WLAN an die Box-API.
    Upload in Teilen (Chunks à 4 MB) mit Fortsetzen nach Abbruch. Der Zero W schafft im WLAN ca. 2–3 MB/s,
    eine Stunde Hörspiel ist also in rund 30 s übertragen.
-2. **Vom Rechner (für Bastler):** Samba-Freigabe `lauschkiste-import` (optional, standardmäßig aus). Neue Ordner dort
+2. **Vom Rechner (für Bastler):** Samba-Freigabe `lauschbox-import` (optional, standardmäßig aus). Neue Ordner dort
    übernimmt die Box beim nächsten Scan als Medien.
 
 **Uhrzeit ohne Internet**
@@ -117,7 +117,7 @@ Schlafenszeit und Tagesbudget wären falsch. Lösung: die **RTC des PiSugar 3**.
   und behandelt Spotify bis dahin als „nicht verfügbar“.
 
 **App-Steuerung ohne Router (optional, später)**
-Findet die Box nach 2 Minuten kein bekanntes WLAN, öffnet sie einen eigenen Hotspot (`Lauschkiste-XXXX`, WPA2,
+Findet die Box nach 2 Minuten kein bekanntes WLAN, öffnet sie einen eigenen Hotspot (`Lauschbox-XXXX`, WPA2,
 Passwort auf dem Etikett und in der App). Die App verbindet sich damit und spricht dieselbe API wie sonst (Box unter `192.168.4.1`).
 Sobald ein bekanntes WLAN wieder erreichbar ist, wechselt die Box zurück. Für Kinder spielt das keine Rolle:
 Token auflegen reicht.

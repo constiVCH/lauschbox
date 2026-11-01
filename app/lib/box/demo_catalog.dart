@@ -38,7 +38,7 @@ final demoCatalog = <Medium>[
   Medium(
     uri: 'spotify:playlist:demo-schlaflieder',
     title: 'Sanfte Schlaflieder',
-    artist: 'Playlist · Lauschkiste',
+    artist: 'Playlist · Lauschbox',
     kind: MediumKind.playlist,
     coverColor: Colors.indigo,
     coverEmoji: '🌙',
@@ -53,7 +53,7 @@ final demoCatalog = <Medium>[
   Medium(
     uri: 'spotify:playlist:demo-tanzparty',
     title: 'Kinderzimmer-Tanzparty',
-    artist: 'Playlist · Lauschkiste',
+    artist: 'Playlist · Lauschbox',
     kind: MediumKind.playlist,
     coverColor: Colors.pink,
     coverEmoji: '🕺',

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lauschkiste/main.dart';
+import 'package:lauschbox/main.dart';
 
 /// Ersatz für pumpAndSettle, das wegen der endlos laufenden LED-Animation nie fertig würde.
 Future<void> settle(WidgetTester tester) async {
@@ -15,7 +15,7 @@ void main() {
     tester.view.physicalSize = const Size(1200, 6000);
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const LauschkisteApp());
+    await tester.pumpWidget(const LauschboxApp());
     await tester.tap(find.text('Demo-Box'));
     await settle(tester);
 
@@ -51,6 +51,6 @@ void main() {
     // Seite schließen, damit Timer der Demo-Box beendet werden
     await tester.tap(find.text('Verbindung trennen'));
     await settle(tester);
-    expect(find.text('Lauschkiste'), findsOneWidget);
+    expect(find.text('Lauschbox'), findsOneWidget);
   });
 }

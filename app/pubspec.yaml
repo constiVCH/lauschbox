@@ -1,5 +1,5 @@
-name: lauschkiste
-description: "Lauschkiste – Eltern-App für die Kinder-Audiobox."
+name: lauschbox
+description: "Lauschbox – Eltern-App für die Kinder-Audiobox."
 publish_to: 'none'
 version: 0.1.0+1
 
