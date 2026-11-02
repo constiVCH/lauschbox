@@ -310,6 +310,7 @@ export class RemoteBox {
         bedtimeTo: 'bedtime_to',
         bedtimeMaxVolume: 'bedtime_max_volume',
         knownTokensOnly: 'known_tokens_only',
+        pin: 'pin',
       };
       const body = Object.fromEntries(Object.entries(patch).map(([k, v]) => [map[k], v]));
       await this.call('PUT', '/api/kidmode', body, { 'X-Parent-Pin': pin }).catch((e) => this.fail(e));

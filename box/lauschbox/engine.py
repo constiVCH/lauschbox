@@ -41,6 +41,8 @@ TRACKS_MAX_AGE_S = 24 * 3600
 
 def _hhmm(value: str) -> int:
     h, m = value.split(":")
+    if not (0 <= int(h) < 24 and 0 <= int(m) < 60):
+        raise ValueError(f"Uhrzeit {value} gibt es nicht")
     return int(h) * 60 + int(m)
 
 
@@ -510,14 +512,18 @@ class Engine:
 
     def update_kid(self, patch: dict) -> KidMode:
         patch = {k: v for k, v in patch.items() if k != "pin" or (isinstance(v, str) and v.isdigit() and len(v) == 4)}
-        self.kid = _patch(self.kid, patch)
-        self.kid.max_volume = max(10, min(100, self.kid.max_volume))
-        self.kid.bedtime_max_volume = max(5, min(self.kid.bedtime_max_volume, self.kid.max_volume))
+        kid = _patch(self.kid, patch)
+        kid.max_volume = max(10, min(100, kid.max_volume))
+        kid.bedtime_max_volume = max(5, min(kid.bedtime_max_volume, kid.max_volume))
         for key in ("bedtime_from", "bedtime_to"):
-            _hhmm(getattr(self.kid, key))  # wirft bei ungültiger Uhrzeit
-        self.store.save_kid(self.kid)
+            _hhmm(getattr(kid, key))  # wirft bei ungültiger Uhrzeit, bevor etwas übernommen ist
+        self.kid = kid
+        self.store.save_kid(kid)
+        if self.volume > self.volume_cap():
+            # Neue Grenze gilt sofort, nicht erst beim nächsten Token
+            asyncio.ensure_future(self.set_volume(self.volume_cap()))
         self._changed()
-        return self.kid
+        return kid
 
     def check_pin(self, pin: str) -> bool:
         return pin == self.kid.pin

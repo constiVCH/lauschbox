@@ -171,7 +171,8 @@ export interface BoxApi {
   dismissNotice(id: number): void;
   verifyPin(pin: string): Promise<boolean>;
   setSettings(patch: Partial<BoxSettings>): Promise<void>;
-  setKid(patch: Partial<KidView>, pin: string): Promise<void>;
+  /** pin im patch: neue Eltern-PIN (4 Ziffern) */
+  setKid(patch: Partial<KidView> & { pin?: string }, pin: string): Promise<void>;
   /** Nur mit sim: Token auflegen/abnehmen */
   place?(uid: string): void;
   remove?(): void;

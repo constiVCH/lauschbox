@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { useBox } from '@/box/BoxContext';
 import type { KidView } from '@/box/types';
@@ -8,7 +8,7 @@ import { PinGate, useParentPin } from '@/components/PinGate';
 import { Screen } from '@/components/Screen';
 import { Slider } from '@/components/Slider';
 import { Button, Card, Row, Section, SwitchRow, Txt } from '@/components/ui';
-import { space, useColors } from '@/theme';
+import { radius, space, type, useColors } from '@/theme';
 
 export default function RulesTab() {
   const [pin, lock] = useParentPin();
@@ -19,12 +19,12 @@ export default function RulesTab() {
       leading={<BackToStart />}
       trailing={pin ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
     >
-      {pin ? <Rules pin={pin} /> : <PinGate onUnlock={lock} />}
+      {pin ? <Rules pin={pin} onPinChanged={lock} /> : <PinGate onUnlock={lock} />}
     </Screen>
   );
 }
 
-function Rules({ pin }: { pin: string }) {
+function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string) => void }) {
   const c = useColors();
   const { view: s, api } = useBox();
   const k = s.kid;
@@ -34,6 +34,13 @@ function Rules({ pin }: { pin: string }) {
   const set = (patch: Partial<KidView>) => {
     setDraft({});
     api.setKid(patch, pin);
+  };
+  const [newPin, setNewPin] = useState('');
+  const changePin = async () => {
+    await api.setKid({ pin: newPin }, pin);
+    // Erst übernehmen, wenn die Box die neue PIN kennt; sonst wäre die App ausgesperrt
+    if (await api.verifyPin(newPin)) onPinChanged(newPin);
+    setNewPin('');
   };
 
   return (
@@ -78,7 +85,27 @@ function Rules({ pin }: { pin: string }) {
             {!s.demo && (
               <SwitchRow first title="Schlafenszeit" icon="moon" iconColor="#7B61FF" value={k.bedtimeEnabled} onChange={(v) => set({ bedtimeEnabled: v })} />
             )}
-            <Row first={!!s.demo} title={`${k.bedtimeFrom} bis ${k.bedtimeTo}`} subtitle={s.demo ? 'In der Demo fest eingestellt' : undefined} icon="time" iconColor="#7B61FF" />
+            <Row first={!!s.demo} title={`${kid.bedtimeFrom} bis ${kid.bedtimeTo}`} subtitle={s.demo ? 'In der Demo fest eingestellt' : undefined} icon="time" iconColor="#7B61FF" />
+            {!s.demo && (
+              <View style={{ gap: space.lg, paddingVertical: space.md }}>
+                <TimeSlider
+                  title="Ab"
+                  value={kid.bedtimeFrom}
+                  min={17 * 60}
+                  max={23 * 60 + 45}
+                  onChange={(v) => setDraft((d) => ({ ...d, bedtimeFrom: v }))}
+                  onEnd={(v) => set({ bedtimeFrom: v })}
+                />
+                <TimeSlider
+                  title="Bis"
+                  value={kid.bedtimeTo}
+                  min={5 * 60}
+                  max={10 * 60}
+                  onChange={(v) => setDraft((d) => ({ ...d, bedtimeTo: v }))}
+                  onEnd={(v) => set({ bedtimeTo: v })}
+                />
+              </View>
+            )}
             <Row
               title={s.bedtimeActive ? 'Gerade Schlafenszeit' : 'Gerade keine Schlafenszeit'}
               icon="timer"
@@ -109,7 +136,69 @@ function Rules({ pin }: { pin: string }) {
           </Card>
         </Section>
       </View>
+
+      {!s.demo && (
+        <Section title="Eltern-PIN" footer="Gilt für Kindermodus und Einstellungen. Ab Werk 1234.">
+          <Card style={styles.pinRow}>
+            <TextInput
+              value={newPin}
+              onChangeText={(t) => setNewPin(t.replace(/\D/g, '').slice(0, 4))}
+              placeholder="Neue PIN"
+              placeholderTextColor={c.textTertiary}
+              keyboardType="number-pad"
+              secureTextEntry
+              maxLength={4}
+              accessibilityLabel="Neue Eltern-PIN, 4 Ziffern"
+              style={[type.body, styles.pinInput, { color: c.text, backgroundColor: c.bg }]}
+            />
+            <Button label="Ändern" icon="key" compact disabled={newPin.length !== 4} onPress={changePin} />
+          </Card>
+        </Section>
+      )}
     </>
+  );
+}
+
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const minutes = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+
+function TimeSlider({
+  title,
+  value,
+  min,
+  max,
+  onChange,
+  onEnd,
+}: {
+  title: string;
+  value: string;
+  min: number;
+  max: number;
+  onChange: (v: string) => void;
+  onEnd: (v: string) => void;
+}) {
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={styles.sliderHead}>
+        <Txt variant="body">{title}</Txt>
+        <Txt variant="body" color="secondary" style={{ fontVariant: ['tabular-nums'] }}>
+          {value} Uhr
+        </Txt>
+      </View>
+      <Slider
+        label={`Schlafenszeit ${title}`}
+        value={Math.max(min, Math.min(max, minutes(value)))}
+        min={min}
+        max={max}
+        step={15}
+        onChange={(v) => onChange(hhmm(Math.round(v)))}
+        onEnd={(v) => onEnd(hhmm(Math.round(v)))}
+        format={(v) => `${hhmm(Math.round(v))} Uhr`}
+      />
+    </View>
   );
 }
 
@@ -143,4 +232,6 @@ function LabeledSlider({
 
 const styles = StyleSheet.create({
   sliderHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  pinRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  pinInput: { flex: 1, minHeight: 46, borderRadius: radius.sm + 2, borderCurve: 'continuous', paddingHorizontal: space.md },
 });

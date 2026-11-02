@@ -218,6 +218,25 @@ def test_kindermodus_grenzen_und_pin(box):
             engine.update_kid({"max_volume": "laut"})
         with pytest.raises(ValueError):
             engine.update_kid({"bedtime_from": "25:99x"})
+        with pytest.raises(ValueError):
+            engine.update_kid({"bedtime_from": "25:00"})
+        assert engine.kid.bedtime_from == "19:30"  # Fehler übernimmt nichts
+        engine.snapshot()
+        engine.update_kid({"bedtime_from": "20:15", "bedtime_to": "06:45"})
+        assert (engine.kid.bedtime_from, engine.kid.bedtime_to) == ("20:15", "06:45")
+        await engine.close()
+
+    run(go())
+
+
+def test_neue_grenze_gilt_sofort(box):
+    async def go():
+        engine, player = await box()
+        await engine.token_placed("tok1")
+        await engine.set_volume(60)
+        engine.update_kid({"max_volume": 40})
+        await asyncio.sleep(0)
+        assert engine.volume == 40 and player.status.volume == 40
         await engine.close()
 
     run(go())
