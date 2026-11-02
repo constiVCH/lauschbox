@@ -3,7 +3,9 @@
 Startet NFC, Taster, LED-Ring und Lautsprecher einzeln. Fehlt ein Bauteil oder ist es falsch verdrahtet,
 meldet /api/hw/status den Fehler, der Rest läuft weiter.
 
-    pip install aiohttp adafruit-circuitpython-pn532 adafruit-circuitpython-neopixel-spi gpiozero lgpio
+    sudo apt install python3-gpiozero python3-lgpio swig liblgpio-dev
+    python3 -m venv --system-site-packages .venv && . .venv/bin/activate
+    pip install -r requirements.txt
     python spikes/hwtest_server.py            # Port 8080
 
 API:
@@ -29,8 +31,44 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 NUM_LEDS = 12
+UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 KNOWN_I2C = {"0x24": "PN532", "0x36": "MAX17048", "0x57": "PiSugar", "0x68": "RTC/PiSugar", "0x75": "PiSugar"}
+
+
+def open_pn532(mode: str = "auto"):
+    """PN532 öffnen. UART (DIP-Schalter beide OFF, Pins 8/10) zuerst, dann I2C (Schalter 1 ON, Pins 3/5).
+
+    Gibt (pn532, Beschreibung) zurück oder wirft RuntimeError mit den Gründen für beide Wege.
+    """
+    errors = []
+    if mode in ("auto", "uart"):
+        try:
+            import serial
+            from adafruit_pn532.uart import PN532_UART
+
+            port = serial.Serial(UART_PORT, 115200, timeout=0.1)
+            try:
+                pn = PN532_UART(port, debug=False)
+                _, ver, rev, _ = pn.firmware_version
+                return pn, f"PN532 Firmware {ver}.{rev} über UART ({UART_PORT})"
+            except Exception:
+                port.close()
+                raise
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"UART: {type(e).__name__}: {e}")
+    if mode in ("auto", "i2c"):
+        try:
+            import board
+            import busio
+            from adafruit_pn532.i2c import PN532_I2C
+
+            pn = PN532_I2C(busio.I2C(board.SCL, board.SDA), debug=False)
+            _, ver, rev, _ = pn.firmware_version
+            return pn, f"PN532 Firmware {ver}.{rev} über I2C"
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"I2C: {type(e).__name__}: {e}")
+    raise RuntimeError("; ".join(errors))
 
 
 class Hub:
@@ -71,14 +109,9 @@ class Nfc(Component):
 
     def start(self) -> None:
         try:
-            import board
-            import busio
-            from adafruit_pn532.i2c import PN532_I2C
-
-            self.pn532 = PN532_I2C(busio.I2C(board.SCL, board.SDA), debug=False)
-            _, ver, rev, _ = self.pn532.firmware_version
+            self.pn532, self.detail = open_pn532()
             self.pn532.SAM_configuration()
-            self.ok, self.detail = True, f"PN532 Firmware {ver}.{rev}"
+            self.ok = True
         except Exception as e:  # noqa: BLE001 – jeder Fehler soll im Status landen
             self.detail = f"{type(e).__name__}: {e}"
             return
@@ -109,6 +142,8 @@ class Buttons(Component):
     def __init__(self, hub: Hub):
         super().__init__("buttons")
         self.hub = hub
+        # Ob ein Taster gerade lang gehalten wurde. Eigenes Feld, weil gpiozero keine fremden Attribute am Button erlaubt.
+        self.held: dict[str, bool] = {}
 
     def start(self) -> None:
         try:
@@ -124,24 +159,24 @@ class Buttons(Component):
             except Exception as e:  # noqa: BLE001
                 failed.append(f"{name} (GPIO{pin}): {e}")
                 continue
-            b.held = False
-            b.when_pressed = lambda btn=b, n=name: self._pressed(btn, n)
-            b.when_held = lambda btn=b, n=name: self._held(btn, n)
-            b.when_released = lambda btn=b, n=name: self._released(btn, n)
+            self.held[name] = False
+            b.when_pressed = lambda n=name: self._pressed(n)
+            b.when_held = lambda n=name: self._held(n)
+            b.when_released = lambda n=name: self._released(n)
             self.buttons[name] = b
         self.ok = not failed
         self.detail = "; ".join(failed) if failed else "GPIO " + ", ".join(str(p) for p in BUTTON_PINS.values())
 
-    def _pressed(self, btn, name: str) -> None:
-        btn.held = False
+    def _pressed(self, name: str) -> None:
+        self.held[name] = False
         self.hub.emit({"type": "button", "name": name, "press": "down"})
 
-    def _held(self, btn, name: str) -> None:
-        btn.held = True
+    def _held(self, name: str) -> None:
+        self.held[name] = True
         self.hub.emit({"type": "button", "name": name, "press": "lang"})
 
-    def _released(self, btn, name: str) -> None:
-        self.hub.emit({"type": "button", "name": name, "press": "up" if btn.held else "kurz"})
+    def _released(self, name: str) -> None:
+        self.hub.emit({"type": "button", "name": name, "press": "up" if self.held.get(name) else "kurz"})
 
 
 class Leds(Component):
@@ -335,7 +370,10 @@ def build_app() -> web.Application:
         hub = Hub(asyncio.get_running_loop())
         comps = {"nfc": Nfc(hub), "buttons": Buttons(hub), "leds": Leds(), "audio": Audio()}
         for comp in comps.values():
-            comp.start()
+            try:
+                comp.start()
+            except Exception as e:  # noqa: BLE001 – ein kaputtes Bauteil darf den Server nicht stoppen
+                comp.ok, comp.detail = False, f"{type(e).__name__}: {e}"
             print(f"{comp.name:8} {'OK ' if comp.ok else 'FEHLER'}  {comp.detail}")
         app["hub"], app["components"] = hub, comps
 

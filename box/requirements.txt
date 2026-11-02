@@ -2,11 +2,12 @@
 aiohttp>=3.10
 zeroconf>=0.130
 
-# Hardware am Pi (fehlen sie, läuft der Rest trotzdem)
+# Hardware am Pi (fehlen sie, läuft der Rest trotzdem).
+# gpiozero und lgpio NICHT per pip: auf dem Pi `sudo apt install python3-gpiozero python3-lgpio`
+# und die Umgebung mit `python3 -m venv --system-site-packages .venv` anlegen.
 adafruit-circuitpython-pn532
+pyserial          # PN532 über UART
 adafruit-circuitpython-neopixel-spi
-gpiozero
-lgpio
 
 # Tests (am PC)
 pytest

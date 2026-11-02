@@ -23,10 +23,10 @@ Pin 1 ist oben in der inneren Reihe (eckiges Lötpad). Links stehen die ungerade
 
 ```
 PN532 VCC ──────── 3,3 V  [ 1] [ 2] 5 V     ──── Verstärker VIN
-PN532 SDA ──────── GPIO2  [ 3] [ 4] 5 V     ──── LED-Ring 5V
-PN532 SCL ──────── GPIO3  [ 5] [ 6] GND     ──── Verstärker GND
-                   GPIO4  [ 7] [ 8] GPIO14
-LED-Ring GND ───── GND    [ 9] [10] GPIO15
+                   GPIO2  [ 3] [ 4] 5 V     ──── LED-Ring 5V
+                   GPIO3  [ 5] [ 6] GND     ──── Verstärker GND
+                   GPIO4  [ 7] [ 8] GPIO14  ──── PN532 RXD (SCL-Stift)
+LED-Ring GND ───── GND    [ 9] [10] GPIO15  ──── PN532 TXD (SDA-Stift)
                    GPIO17 [11] [12] GPIO18  ──── Verstärker BCLK
                    GPIO27 [13] [14] GND     ──── PN532 GND
                    GPIO22 [15] [16] GPIO23
@@ -68,18 +68,21 @@ ist gebrückt, das würde den Verstärker beschädigen.
 > Richtig ist: GPIO16 an SD, zum Stummschalten als Ausgang **LOW**, zum Einschalten auf **Eingang** (hochohmig) zurückschalten.
 > Dann sorgt der Widerstand auf dem Board wieder für Mono-Mix.
 
-### 2. NFC-Leser PN532
+### 2. NFC-Leser PN532 (über UART)
 
-Zuerst die DIP-Schalter auf dem Modul auf **I2C** stellen: **SEL0 = ON (1), SEL1 = OFF (0)**. Das gilt für das verbreitete rote
-Elechouse-V3-Modul. Bei anderen Modulen steht die Tabelle meist auf der Platine.
+DIP-Schalter auf dem Modul: **beide OFF**. Das ist der UART-Modus (beim PN532 „HSU“). Im Testaufbau hat das Modul über I2C
+nicht geantwortet, über UART sofort; UART ist auf dem Pi ohnehin robuster.
 
-| PN532 | Pi-Pin | |
+| PN532 (4-poliger Anschluss) | Pi-Pin | |
 |---|---|---|
-| VCC | 1 (**3,3 V**) | Nicht 5 V: Die Pull-ups auf dem Modul hängen an VCC und würden 5 V auf die I2C-Leitungen legen |
+| VCC | 1 (**3,3 V**) | Nicht 5 V: Dann kämen die Signale mit 5 V am Pi an |
 | GND | 14 (GND) | |
-| SDA | 3 (GPIO2) | |
-| SCL | 5 (GPIO3) | |
+| TXD (Stift heißt oft auch SDA) | 10 (GPIO15, RXD) | **über Kreuz:** TX an RX |
+| RXD (Stift heißt oft auch SCL) | 8 (GPIO14, TXD) | |
 | IRQ, RSTO | frei | werden nicht gebraucht |
+
+Auf dem Pi die serielle Schnittstelle einschalten (siehe „Pi einrichten“). Der Modus wird nur beim Einschalten gelesen:
+nach dem Umstellen der Schalter einmal den Stecker ziehen.
 
 Die Antenne ist die Leiterschleife auf dem Modul. Später liegt sie direkt unter der Mulde im Deckel, max. ca. 2–3 cm Abstand zum Token.
 
@@ -115,10 +118,11 @@ Wie in [docs/pi-setup.md](../docs/pi-setup.md), mit diesen Abweichungen:
 
 1. **Imager:** Gerät „Raspberry Pi 3“ → **Raspberry Pi OS Lite (32-bit)**. Hostname `lauschbox`, SSH an, WLAN + Benutzer eintragen.
    Nimm ein **2,4-GHz-WLAN**: Der 3B+ kann auch 5 GHz, der Zero W später nicht.
-2. `/boot/firmware/config.txt` wie in pi-setup.md, Schritt 2. Zusätzlich die vorhandene Zeile `dtoverlay=vc4-kms-v3d` zu
+2. Serielle Schnittstelle für den NFC-Leser: `sudo raspi-config nonint do_serial_hw 0` und `sudo raspi-config nonint do_serial_cons 1`.
+3. `/boot/firmware/config.txt` wie in pi-setup.md, Schritt 2. Zusätzlich die vorhandene Zeile `dtoverlay=vc4-kms-v3d` zu
    `dtoverlay=vc4-kms-v3d,noaudio` ändern. Sonst gibt es neben dem Verstärker noch ein HDMI-Audiogerät, und `default` zeigt
    womöglich dorthin.
-3. go-librespot: Das Archiv `armv6_rpi` läuft auch auf dem 3B+ (32-bit-System). So bleibt alles gleich, wenn die Karte auf den Zero umzieht.
+4. go-librespot: Das Archiv `armv6_rpi` läuft auch auf dem 3B+ (32-bit-System). So bleibt alles gleich, wenn die Karte auf den Zero umzieht.
 
 **Kann die SD-Karte später in den Zero?** Ja, das 32-bit-System läuft auf beiden. Nur die Python-Umgebung (`box/.venv`)
 musst du auf dem Zero neu anlegen: pip lädt auf dem 3B+ Pakete für ARMv7, die auf dem Zero (ARMv6) abstürzen.
@@ -128,17 +132,18 @@ musst du auf dem Zero neu anlegen: pip lädt auf dem 3B+ Pakete für ARMv7, die 
 Auf dem Pi, im Repo-Ordner:
 
 ```
-sudo apt install -y python3-venv python3-dev i2c-tools git
+sudo apt install -y python3-venv python3-dev i2c-tools git python3-gpiozero python3-lgpio
 cd box
-python3 -m venv .venv && . .venv/bin/activate
-pip install adafruit-circuitpython-pn532 adafruit-circuitpython-neopixel-spi gpiozero lgpio aiohttp
+# gpiozero und lgpio kommen als Systempakete; die Umgebung darf sie mitbenutzen (--system-site-packages).
+# Per pip müsste lgpio auf dem Pi erst gebaut werden (braucht swig) und scheitert sonst.
+python3 -m venv --system-site-packages .venv && . .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 | Schritt | Befehl | Erwartung |
 |---|---|---|
 | Lautsprecher | `speaker-test -c2 -t wav -l 1` | „Front left“, „Front right“ aus dem Lautsprecher (beides, weil Mono-Mix) |
-| I2C | `i2cdetect -y 1` | `24` erscheint in der Tabelle (PN532) |
-| NFC | `python spikes/nfc_test.py` | Firmware-Version, dann UID beim Auflegen, „entfernt“ beim Abnehmen |
+| NFC | `python spikes/nfc_test.py` | Firmware-Version, dann UID beim Auflegen, „entfernt“ beim Abnehmen (über I2C: `--i2c`) |
 | LEDs | `python spikes/leds_test.py` | Rot, Grün, Blau, dann füllt sich der Ring grün |
 | Taster | `python spikes/buttons_test.py` | `play_pause: kurz`, `lauter: lang` usw. |
 | Alles mit App | `python spikes/hwtest_server.py` | Server auf Port 8080; in der Test-App „Testaufbau“ die IP des Pi eintragen |
@@ -150,8 +155,8 @@ Die IP des Pi zeigt `hostname -I`. Die Test-App ([testapp/](../testapp/)) verbin
 
 | Problem | Ursache / Lösung |
 |---|---|
-| `i2cdetect` zeigt nichts | DIP-Schalter falsch, SDA/SCL vertauscht, I2C nicht aktiviert (`dtparam=i2c_arm=on`) |
-| PN532 meldet sich nur manchmal | I2C-Takt senken: `dtparam=i2c_arm_baudrate=50000` in config.txt; Netzteil prüfen |
+| NFC: „Failed to detect the PN532“ | Schalter nicht beide OFF, nach dem Umstellen kein echter Stromausfall, TX/RX nicht über Kreuz (Pin 8/10 tauschen), serielle Schnittstelle aus (`ls -l /dev/serial0`) |
+| NFC über I2C: `i2cdetect` zeigt nichts | Schalter 1 ON/2 OFF, SDA/SCL tauschen, Takt senken (`dtparam=i2c_arm_baudrate=10000`). Bei manchen Modulen geht I2C trotzdem nicht: dann UART |
 | Lautsprecher stumm | `aplay -l` zeigt keine „MAX98357A“-Karte → Overlay fehlt; sonst BCLK/LRC vertauscht |
 | Lautsprecher brummt/rauscht im Leerlauf | normal ohne Mute; später über GPIO16 lösen (siehe oben) |
 | LED-Ring dunkel | DIN/DOUT verwechselt, SPI nicht an (`dtparam=spi=on`), `ls /dev/spidev0.0` prüfen |

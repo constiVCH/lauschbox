@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--data-dir", type=Path, default=None, help="Ablage für lauschbox.db")
     parser.add_argument("--librespot", default="http://localhost:3678", help="URL der go-librespot-API")
+    parser.add_argument("--nfc", choices=["auto", "uart", "i2c"], default="auto", help="Anschluss des PN532")
     parser.add_argument("--no-mdns", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -54,7 +55,7 @@ async def run(args, data_dir: Path) -> web.Application:
             else:
                 await engine.token_removed()
 
-        nfc = Nfc(loop, on_token)
+        nfc = Nfc(loop, on_token, mode=args.nfc)
         buttons = Buttons(loop, engine.button)
         ring = LedRing()
         for part in (nfc, buttons, ring):

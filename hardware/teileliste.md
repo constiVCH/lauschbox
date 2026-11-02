@@ -8,7 +8,7 @@
 | Akku/Laden | **PiSugar 3 Plus** (5000 mAh) | USB-C, Durchreichen (Netzbetrieb), Ladestand per I2C, Ein/Aus-Taster, RTC. Die kleine Version (1200 mAh) hält nur ca. 2 h |
 | Verstärker | Adafruit MAX98357A (I2S, 3 W) | Alternative: HifiBerry MiniAmp (Stereo) |
 | Lautsprecher | 3 W, 4 Ω, Ø 40–57 mm | Mit Resonanzraum im Gehäuse klingt es deutlich besser |
-| NFC-Reader | PN532-Modul (I2C) | Robuster als RC522, liest NTAG zuverlässig |
+| NFC-Reader | PN532-Modul, angeschlossen über UART | Robuster als RC522, liest NTAG zuverlässig. I2C ging im Testaufbau nicht (Modul antwortete nicht), UART sofort |
 | Tags | NTAG213/215 Sticker oder Disc, Ø 25 mm | Es wird nur die UID genutzt |
 | LEDs | WS2812B-Ring, 12 LEDs | Stromverbrauch per Helligkeit begrenzen |
 | Taster | 3× 12 mm Drucktaster | Play/Pause, Lauter, Leiser |
@@ -23,7 +23,9 @@
 | I2S LRCLK | 19 | 35 | |
 | I2S DIN | 21 | 40 | |
 | Verstärker SD (Mute) | 16 | 36 | Abschalten gegen Rauschen im Leerlauf |
-| I2C SDA (PN532, PiSugar) | 2 | 3 | PN532 0x24, PiSugar 0x57/0x68/0x75: keine Konflikte |
+| PN532 RXD ← Pi TXD | 14 (UART TX) | 8 | Über Kreuz: TX an RX. `/dev/serial0`, 115200 Baud |
+| PN532 TXD → Pi RXD | 15 (UART RX) | 10 | |
+| I2C SDA (PiSugar) | 2 | 3 | PiSugar 0x57/0x68/0x75 |
 | I2C SCL | 3 | 5 | |
 | WS2812 Data | 10 (SPI0 MOSI) | 19 | Per SPI angesteuert, weil GPIO18 (PWM) schon durch I2S belegt ist |
 | Taster Play/Pause | 5 | 29 | Gegen GND, interner Pull-up |
@@ -31,6 +33,10 @@
 | Taster Leiser | 13 | 33 | |
 | 5 V / GND | – | 2,4 / 6,9,… | LEDs + Verstärker an 5 V |
 
-PN532: DIP-Schalter auf **I2C** stellen (SEL0=1, SEL1=0).
+PN532: DIP-Schalter **beide OFF** (UART, beim PN532 „HSU“). Am 4-poligen Anschluss heißen die Stifte meist SDA/TXD und SCL/RXD.
+Auf dem Pi die serielle Schnittstelle an- und die Konsole darauf ausschalten: `sudo raspi-config nonint do_serial_hw 0` und
+`sudo raspi-config nonint do_serial_cons 1`. Bluetooth bleibt dabei an (gebraucht für die WLAN-Einrichtung); die Schnittstelle
+ist dann der Mini-UART, dessen Takt `core_freq_min=400` stabil hält.
+Alternative I2C (Schalter 1 ON, SDA an Pin 3, SCL an Pin 5): Die Software probiert UART zuerst und dann I2C.
 
 Schritt-für-Schritt-Verdrahtung mit Stiftleisten-Plan und Tests: [testaufbau-pi3b.md](testaufbau-pi3b.md) (gilt 1:1 auch für den Zero).

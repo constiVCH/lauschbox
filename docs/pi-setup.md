@@ -21,6 +21,11 @@ dtparam=spi=on
 # Konstanter SPI-Takt für den WS2812-Ring (sonst kann er flackern, wenn der Kerntakt schwankt)
 core_freq_min=400
 ```
+Für den NFC-Leser (über UART) außerdem:
+```
+sudo raspi-config nonint do_serial_hw 0     # serielle Schnittstelle an
+sudo raspi-config nonint do_serial_cons 1   # Konsole darauf aus
+```
 Reboot, dann testen: `aplay -l` und `speaker-test -c2 -t wav`
 
 ## 3. Spotify-Connect: go-librespot
@@ -97,7 +102,8 @@ Zum Abspielen reicht go-librespot. Die Web API brauchen wir nur für die Suche b
 **a) Abspielen über go-librespot** (auf dem Pi, ohne Web API):
 ```
 cd box
-python3 -m venv .venv && . .venv/bin/activate
+sudo apt install -y python3-venv python3-gpiozero python3-lgpio
+python3 -m venv --system-site-packages .venv && . .venv/bin/activate
 pip install requests
 python spikes/golibrespot_spike.py spotify:album:<ID>
 python spikes/golibrespot_spike.py spotify:album:<ID> --position 90000   # ab 1:30 im ersten Titel
@@ -112,11 +118,12 @@ python spikes/spotify_spike.py --client-id <ID> --uri spotify:album:<ID>
 
 ## 6. Hardware-Tests (auf dem Pi)
 ```
-sudo apt install -y python3-venv python3-dev i2c-tools
+sudo apt install -y python3-venv python3-dev i2c-tools python3-gpiozero python3-lgpio
+# gpiozero und lgpio kommen als Systempakete; die Umgebung darf sie mitbenutzen (--system-site-packages).
+# Per pip müsste lgpio auf dem Pi erst gebaut werden (braucht swig) und scheitert sonst.
 # Fertige Pakete (Wheels) für ARMv6 kommen von piwheels (bei Raspberry Pi OS schon eingestellt).
-# Fehlt eins, wird es auf dem Pi gebaut, das kann dauern.
-pip install adafruit-circuitpython-pn532 adafruit-circuitpython-neopixel-spi gpiozero lgpio
-i2cdetect -y 1          # 24 = PN532, 57/68/75 = PiSugar
+pip install -r requirements.txt
+i2cdetect -y 1          # 57/68/75 = PiSugar (der PN532 hängt an UART, nicht hier)
 python spikes/nfc_test.py
 python spikes/buttons_test.py
 python spikes/leds_test.py

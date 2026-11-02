@@ -15,11 +15,47 @@ from typing import Awaitable, Callable
 log = logging.getLogger(__name__)
 
 NUM_LEDS = 12
+UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 HOLD_S = 1.0
 # So viele Fehllesungen hintereinander, bis ein Token als abgenommen gilt (ca. 0,6 s).
 # Der PN532 verpasst einen aufliegenden Token gelegentlich; sonst würde die Box ständig kurz pausieren.
 MISSES_FOR_REMOVAL = 3
+
+
+def open_pn532(mode: str = "auto"):
+    """PN532 öffnen. UART (DIP-Schalter beide OFF, Pins 8/10) zuerst, dann I2C (Schalter 1 ON, Pins 3/5).
+
+    Gibt (pn532, Beschreibung) zurück oder wirft RuntimeError mit den Gründen für beide Wege.
+    """
+    errors = []
+    if mode in ("auto", "uart"):
+        try:
+            import serial
+            from adafruit_pn532.uart import PN532_UART
+
+            port = serial.Serial(UART_PORT, 115200, timeout=0.1)
+            try:
+                pn = PN532_UART(port, debug=False)
+                _, ver, rev, _ = pn.firmware_version
+                return pn, f"PN532 Firmware {ver}.{rev} über UART ({UART_PORT})"
+            except Exception:
+                port.close()
+                raise
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"UART: {type(e).__name__}: {e}")
+    if mode in ("auto", "i2c"):
+        try:
+            import board
+            import busio
+            from adafruit_pn532.i2c import PN532_I2C
+
+            pn = PN532_I2C(busio.I2C(board.SCL, board.SDA), debug=False)
+            _, ver, rev, _ = pn.firmware_version
+            return pn, f"PN532 Firmware {ver}.{rev} über I2C"
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"I2C: {type(e).__name__}: {e}")
+    raise RuntimeError("; ".join(errors))
 
 
 class Part:
@@ -33,21 +69,17 @@ class Part:
 
 
 class Nfc(Part):
-    def __init__(self, loop: asyncio.AbstractEventLoop, on_token: Callable[[str | None], Awaitable[None]]):
+    def __init__(self, loop: asyncio.AbstractEventLoop, on_token: Callable[[str | None], Awaitable[None]], mode: str = "auto"):
         super().__init__("nfc")
         self.loop = loop
         self.on_token = on_token
+        self.mode = mode
 
     def start(self) -> None:
         try:
-            import board
-            import busio
-            from adafruit_pn532.i2c import PN532_I2C
-
-            self.pn532 = PN532_I2C(busio.I2C(board.SCL, board.SDA), debug=False)
-            _, ver, rev, _ = self.pn532.firmware_version
+            self.pn532, self.detail = open_pn532(self.mode)
             self.pn532.SAM_configuration()
-            self.ok, self.detail = True, f"PN532 Firmware {ver}.{rev}"
+            self.ok = True
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             log.warning("NFC: %s", self.detail)
