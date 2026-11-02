@@ -27,3 +27,26 @@ def test_orange_bleibt_orange():
     frame = led_frame({"mode": "playing", "color": "#FF8A3D", "fill": 1, "brightness": 1}, t=0)
     r, g, b = frame[0]
     assert r == 255 and g < 0.25 * r and b < 0.03 * r
+
+
+def test_bauteil_wird_nach_dem_start_erneut_versucht():
+    import asyncio
+
+    from lauschbox.hardware import Part, retry_parts
+
+    class Spaet(Part):
+        def __init__(self):
+            super().__init__("leds")
+            self.versuche = 0
+
+        def start(self):
+            self.versuche += 1
+            if self.versuche >= 3:
+                self.ok, self.detail = True, "läuft"
+            else:
+                raise RuntimeError("SPI noch nicht bereit")
+
+    part = Spaet()
+    ok_gemeldet = []
+    asyncio.run(retry_parts({"leds": part}, ok_gemeldet.append, lambda: None, attempts=5, every_s=0.01))
+    assert part.ok and part.versuche == 3 and ok_gemeldet == [part]

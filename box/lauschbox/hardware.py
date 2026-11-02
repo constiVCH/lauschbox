@@ -154,6 +154,9 @@ class Buttons(Part):
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             return
+        # Bei einem erneuten Versuch erst die schon belegten Pins freigeben
+        for b in getattr(self, "buttons", {}).values():
+            b.close()
         self.buttons = {}
         failed = []
         for name, pin in BUTTON_PINS.items():
@@ -226,6 +229,27 @@ class LedRing(Part):
         for i, c in enumerate(frame):
             self.pixels[i] = c
         self.pixels.show()
+
+
+async def retry_parts(parts: dict, on_ok: Callable[[Part], None], changed: Callable[[], None], attempts: int = 12, every_s: float = 5.0) -> None:
+    """Beim Hochfahren sind Schnittstellen manchmal noch nicht bereit: fehlende Bauteile eine Weile erneut versuchen."""
+    for _ in range(attempts):
+        missing = [part for part in parts.values() if not part.ok]
+        if not missing:
+            return
+        await asyncio.sleep(every_s)
+        for part in missing:
+            try:
+                part.start()
+            except Exception as e:  # noqa: BLE001
+                part.ok, part.detail = False, f"{type(e).__name__}: {e}"
+            if part.ok:
+                log.info("%-8s jetzt OK  %s", part.name, part.detail)
+                on_ok(part)
+        changed()
+    for part in parts.values():
+        if not part.ok:
+            log.warning("%-8s bleibt FEHLER: %s", part.name, part.detail)
 
 
 def _rgb(hex_color: str) -> tuple[int, int, int]:

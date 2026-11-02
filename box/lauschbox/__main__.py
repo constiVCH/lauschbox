@@ -72,15 +72,29 @@ async def run(args, data_dir: Path) -> web.Application:
 
     async def startup(app: web.Application) -> None:
         await engine.start()
-        if "leds" in hardware:
+        if "leds" in hardware and hardware["leds"].ok:
             from .hardware import run_leds
 
             extras["led_task"] = asyncio.create_task(run_leds(hardware["leds"], engine.led_state))
+        if any(not part.ok for part in hardware.values()):
+            extras["retry_task"] = asyncio.create_task(retry_hardware())
         if not args.no_mdns:
             extras["mdns"] = await _announce(args.port)
         log.info("Lauschbox bereit auf Port %s (%s)", args.port, "Simulation" if args.fake else "Hardware")
 
+    async def retry_hardware() -> None:
+        from .hardware import retry_parts, run_leds
+
+        def on_ok(part) -> None:
+            if part is hardware.get("leds") and "led_task" not in extras:
+                extras["led_task"] = asyncio.create_task(run_leds(part, engine.led_state))
+
+        # engine._changed schickt den neuen Hardware-Zustand an die App
+        await retry_parts(hardware, on_ok, engine._changed)
+
     async def cleanup(app: web.Application) -> None:
+        if "retry_task" in extras:
+            extras["retry_task"].cancel()
         if "led_task" in extras:
             extras["led_task"].cancel()
         if extras.get("mdns"):
