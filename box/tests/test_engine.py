@@ -26,11 +26,12 @@ def run(coro):
 
 @pytest.fixture
 def box(tmp_path):
-    async def make(clock=None):
+    async def make(clock=None, grace=0.0):
         store = Store(tmp_path / "test.db")
         player = FakePlayer()
         engine = Engine(store, player, clock=clock or Clock())
         await engine.start()
+        engine.update_settings({"remove_grace_s": grace})  # die meisten Tests: Abnehmen wirkt sofort
         engine.save_token("tok1", "Funkel", "#FF8A3D", ALBUM)
         engine.save_token("tok2", "Schlaflieder", "#7B61FF", PLAYLIST)
         return engine, player
@@ -395,3 +396,47 @@ def test_alte_token_bekommen_passende_wiedergabe_art(tmp_path):
     store = Store(db)
     assert [store.token(u).mode for u in "abc"] == ["hoerspiel", "titel", "zufall"]
     store.close()
+
+
+def test_kurz_abgenommen_spielt_weiter(box):
+    async def go():
+        engine, player = await box(grace=0.5)
+        await engine.token_placed("tok1")
+        await player.seek(30_000)
+        await engine.token_removed()
+        await asyncio.sleep(0.2)
+        assert player.status.playing and engine.removal_pending
+        assert await engine.token_placed("tok1") == "kept"  # zurück innerhalb der Nachfrist
+        await asyncio.sleep(0.6)
+        assert player.status.playing and player.position() >= 30_000  # nicht neu gestartet, nicht pausiert
+        assert engine.placed == "tok1"
+        await engine.close()
+
+    run(go())
+
+
+def test_nach_der_nachfrist_wird_pausiert(box):
+    async def go():
+        engine, player = await box(grace=0.3)
+        await engine.token_placed("tok1")
+        await engine.token_removed()
+        assert player.status.playing
+        await asyncio.sleep(0.5)
+        assert not player.status.playing and engine.placed is None
+        await engine.close()
+
+    run(go())
+
+
+def test_anderer_token_in_der_nachfrist_wechselt_sofort(box):
+    async def go():
+        engine, player = await box(grace=2.0)
+        await engine.token_placed("tok1")
+        await engine.token_removed()
+        assert await engine.token_placed("tok2") == "started"
+        assert player.status.context_uri == PLAYLIST.uri and engine.placed == "tok2"
+        await asyncio.sleep(0.1)
+        assert not engine.removal_pending
+        await engine.close()
+
+    run(go())

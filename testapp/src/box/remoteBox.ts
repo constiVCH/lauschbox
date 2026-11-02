@@ -22,6 +22,8 @@ type RawState = {
   };
   placed: string | null;
   loaded: string | null;
+  removal_pending?: boolean;
+  settings: { remove_grace_s?: number };
   volume: number;
   volume_cap: number;
   locked: boolean;
@@ -225,6 +227,8 @@ export class RemoteBox {
       sim: r.box.simulated ? { tray: [...r.tokens.map((t) => t.uid), this.blankUid] } : null,
       demo: null,
       hardware: r.box.hardware ?? {},
+      settings: { removeGraceS: r.settings?.remove_grace_s ?? 2 },
+      removalPending: !!r.removal_pending,
     };
   }
 
@@ -288,6 +292,11 @@ export class RemoteBox {
         this.localNotice = null;
         this.changed();
       } else this.fire('POST', `/api/notice/${id}/dismiss`);
+    },
+    setSettings: async (patch) => {
+      const body: Record<string, unknown> = {};
+      if (patch.removeGraceS !== undefined) body.remove_grace_s = patch.removeGraceS;
+      await this.call('PUT', '/api/settings', body).catch((e) => this.fail(e));
     },
     verifyPin: async (pin) => (await this.call<{ ok: boolean }>('POST', '/api/kidmode/verify', { pin })).ok,
     setKid: async (patch, pin) => {

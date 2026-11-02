@@ -90,6 +90,8 @@ export function demoView(s: BoxState): BoxView {
     sim: { tray: s.tray },
     demo: { speed: s.speed, bedtime: s.bedtime },
     hardware: {},
+    settings: { removeGraceS: s.removeGraceS },
+    removalPending: s.removalPending,
   };
 }
 
@@ -127,6 +129,9 @@ export const demoApi: BoxApi = {
   deleteToken: async (uid) => demoBox.deleteToken(uid),
   dismissNotice: demoBox.dismissNotice,
   verifyPin: async (pin) => pin === DEMO_PIN,
+  setSettings: async (patch) => {
+    if (patch.removeGraceS !== undefined) demoBox.setRemoveGrace(patch.removeGraceS);
+  },
   setKid: async (patch) => {
     const { enabled, maxVolume, noAutoplay, bedtimeMaxVolume, knownTokensOnly } = patch;
     demoBox.setKid(

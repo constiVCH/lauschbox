@@ -112,11 +112,20 @@ export type BoxView = {
   sim: { tray: string[] } | null;
   /** Nur Demo: Zeitraffer und „Abends“ vorspielen */
   demo: { speed: 1 | 30; bedtime: boolean } | null;
+  /** Allgemeine Einstellungen der Box */
+  settings: BoxSettings;
+  /** Token wurde abgenommen, die Box spielt aber noch die Nachfrist lang weiter */
+  removalPending: boolean;
   /** Zustand der Bauteile (nur echte Box): nfc, buttons, leds */
   hardware: Record<string, { ok: boolean; detail: string }>;
 };
 
 export type BoxButton = 'minus' | 'play' | 'plus';
+
+export type BoxSettings = {
+  /** So lange spielt die Box weiter, wenn ein Token kurz abgenommen wird (0 = sofort pausieren) */
+  removeGraceS: number;
+};
 
 export type SystemAction = 'restart-spotify' | 'restart-box' | 'reboot' | 'poweroff' | 'spotify-logout' | 'update';
 
@@ -159,6 +168,7 @@ export interface BoxApi {
   deleteToken(uid: string): Promise<void>;
   dismissNotice(id: number): void;
   verifyPin(pin: string): Promise<boolean>;
+  setSettings(patch: Partial<BoxSettings>): Promise<void>;
   setKid(patch: Partial<KidView>, pin: string): Promise<void>;
   /** Nur mit sim: Token auflegen/abnehmen */
   place?(uid: string): void;

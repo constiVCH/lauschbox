@@ -66,6 +66,7 @@ class Engine:
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
         self._tracks: dict[str, list[dict]] = {}  # Titellisten je Inhalt (URI)
+        self._pending_removal: asyncio.Task | None = None  # Nachfrist nach dem Abnehmen
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
         self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
         player.on_change = self._on_player
@@ -140,10 +141,16 @@ class Engine:
     async def token_placed(self, uid: str) -> str:
         """Ergebnis: started, resumed, learned, known, unknown, ignored, denied, error."""
         if uid == self.placed:
+            if self._cancel_pending_removal():
+                log.info("Token %s innerhalb der Nachfrist zurück: spielt weiter", uid)
+                self._changed()
+                return "kept"
             return "ignored"
         self._clear_flash()
         if self.placed:
-            await self.token_removed()
+            # Anderer Token: sofort wechseln, auch wenn der alte gerade in der Nachfrist ist
+            self._cancel_pending_removal()
+            await self._remove_now()
         self.placed = uid
         token = self.store.token(uid)
 
@@ -212,7 +219,36 @@ class Engine:
         self._changed()
         return result
 
+    def _cancel_pending_removal(self) -> bool:
+        task, self._pending_removal = self._pending_removal, None
+        if task and not task.done():
+            task.cancel()
+            return True
+        return False
+
+    @property
+    def removal_pending(self) -> bool:
+        return bool(self._pending_removal and not self._pending_removal.done())
+
     async def token_removed(self) -> None:
+        """Token weg. Spielt er gerade, erst nach der Nachfrist pausieren: kommt er rechtzeitig zurück, läuft es weiter."""
+        if not self.placed:
+            return
+        grace = max(0.0, float(self.settings.remove_grace_s))
+        if grace > 0 and self._loaded == self.placed and self.playing:
+            self._cancel_pending_removal()
+            self._pending_removal = asyncio.ensure_future(self._remove_after(self.placed, grace))
+            self._changed()
+            return
+        await self._remove_now()
+
+    async def _remove_after(self, uid: str, grace: float) -> None:
+        await asyncio.sleep(grace)
+        if self.placed == uid:
+            self._pending_removal = None
+            await self._remove_now()
+
+    async def _remove_now(self) -> None:
         if not self.placed:
             return
         self._save_progress()
@@ -380,6 +416,7 @@ class Engine:
     def update_settings(self, patch: dict) -> Settings:
         self.settings = _patch(self.settings, patch)
         self.settings.max_volume = max(10, min(100, self.settings.max_volume))
+        self.settings.remove_grace_s = max(0.0, min(5.0, self.settings.remove_grace_s))
         self.store.save_settings(self.settings)
         self._changed()
         return self.settings
@@ -614,6 +651,7 @@ class Engine:
             },
             "placed": self.placed,
             "placed_known": token is not None,
+            "removal_pending": self.removal_pending,
             "loaded": loaded.uid if loaded and loaded.medium.uri == s.context_uri else None,
             "volume": self.volume,
             "volume_cap": self.volume_cap(),

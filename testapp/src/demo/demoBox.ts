@@ -53,6 +53,9 @@ export type BoxState = {
   kid: KidMode;
   led: { mode: LedMode; color: string; fill: number };
   notice: Notice | null;
+  /** Nachfrist in Sekunden, wenn ein Token kurz abgenommen wird */
+  removeGraceS: number;
+  removalPending: boolean;
 };
 
 const initialTokens: Token[] = [
@@ -84,7 +87,10 @@ class DemoBox {
     kid: { enabled: true, maxVolume: 60, noAutoplay: true, bedtimeMaxVolume: 30, knownTokensOnly: false },
     led: { mode: 'idle', color: '#FFFFFF', fill: 0 },
     notice: null,
+    removeGraceS: 2,
+    removalPending: false,
   };
+  private graceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private listeners = new Set<() => void>();
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -172,10 +178,17 @@ class DemoBox {
 
   // ---------- Token ----------
 
-  place = (uid: string): 'started' | 'learned' | 'unknown' | 'denied' | 'ignored' => {
+  place = (uid: string): 'started' | 'learned' | 'unknown' | 'denied' | 'ignored' | 'kept' => {
     const s = this.state;
+    if (s.removalPending && s.placed === uid) {
+      // Innerhalb der Nachfrist zurückgelegt: einfach weiter
+      this.cancelGrace();
+      this.set({ removalPending: false });
+      return 'kept';
+    }
+    this.cancelGrace();
     this.clearFlash();
-    if (s.placed) this.remove();
+    if (s.placed) this.removeNow();
     if (s.learning) {
       if (!isBlank(this.state, uid)) {
         this.set({ placed: uid });
@@ -216,7 +229,31 @@ class DemoBox {
     return 'started';
   };
 
+  private cancelGrace() {
+    if (this.graceTimer) clearTimeout(this.graceTimer);
+    this.graceTimer = null;
+  }
+
+  /** Token abnehmen. Spielt er gerade, erst nach der Nachfrist pausieren. */
   remove = () => {
+    const s = this.state;
+    if (!s.placed) return;
+    if (s.removeGraceS > 0 && s.playing && this.token()) {
+      this.cancelGrace();
+      this.graceTimer = setTimeout(() => {
+        this.graceTimer = null;
+        this.set({ removalPending: false });
+        this.removeNow();
+      }, s.removeGraceS * 1000);
+      this.set({ removalPending: true });
+      return;
+    }
+    this.removeNow();
+  };
+
+  setRemoveGrace = (seconds: number) => this.set({ removeGraceS: Math.max(0, Math.min(5, seconds)) });
+
+  private removeNow = () => {
     const s = this.state;
     if (!s.placed) return;
     this.saveProgress();
@@ -326,7 +363,8 @@ class DemoBox {
 
   startLearn = () => {
     this.clearFlash();
-    if (this.state.placed) this.remove();
+    this.cancelGrace();
+    if (this.state.placed) this.removeNow();
     this.set({ learning: true, learnedUid: null });
   };
 
@@ -359,7 +397,7 @@ class DemoBox {
   };
 
   deleteToken = (uid: string) => {
-    if (this.state.placed === uid) this.remove();
+    if (this.state.placed === uid) this.removeNow();
     this.set({ tokens: this.state.tokens.filter((t) => t.uid !== uid) });
   };
 

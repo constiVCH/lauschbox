@@ -62,6 +62,8 @@ class Settings:
     on_remove: str = "pause"  # pause | keep
     led_brightness: float = 0.25
     night_brightness: float = 0.08
+    # Token kurz abgenommen (Wackeln, Lesefehler): so lange weiterspielen, bevor pausiert wird
+    remove_grace_s: float = 2.0
 
 
 @dataclass

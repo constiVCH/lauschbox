@@ -10,6 +10,7 @@ import { BackToStart } from '@/components/BackToStart';
 import { confirm } from '@/components/confirm';
 import { PinGate, useParentPin } from '@/components/PinGate';
 import { Screen } from '@/components/Screen';
+import { Slider } from '@/components/Slider';
 import { Button, Card, Row, Section, Txt } from '@/components/ui';
 import { radius, space, useColors } from '@/theme';
 
@@ -94,6 +95,8 @@ function Settings({ pin }: { pin: string }) {
 
       <SpotifySection />
 
+      <BehaviorSection />
+
       <Section title="Box" footer="Nach einem Update oder Neustart verbindet sich die App von selbst wieder.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
           <Row
@@ -159,6 +162,42 @@ function Settings({ pin }: { pin: string }) {
         </Card>
       </Section>
     </>
+  );
+}
+
+/** Verhalten der Box: Nachfrist beim Abnehmen eines Tokens. */
+function BehaviorSection() {
+  const { view, api } = useBox();
+  const [draft, setDraft] = useState<number | null>(null);
+  const value = draft ?? view.settings.removeGraceS;
+  const label = value === 0 ? 'Aus' : `${value.toLocaleString('de-DE')} s`;
+  return (
+    <Section
+      title="Token abnehmen"
+      footer="So lange spielt die Box weiter, wenn ein Token kurz abgenommen wird, etwa beim Wackeln oder wenn der Leser kurz aussetzt. Kommt derselbe Token zurück, geht es nahtlos weiter."
+    >
+      <Card style={{ gap: space.sm }}>
+        <View style={styles.sliderHead}>
+          <Txt variant="body">Weiterspielen für</Txt>
+          <Txt variant="body" color="secondary" style={{ fontVariant: ['tabular-nums'] }}>
+            {label}
+          </Txt>
+        </View>
+        <Slider
+          label="Nachfrist beim Abnehmen"
+          value={value}
+          min={0}
+          max={5}
+          step={0.5}
+          onChange={setDraft}
+          onEnd={(v) => {
+            setDraft(null);
+            api.setSettings({ removeGraceS: v });
+          }}
+          format={(v) => (v === 0 ? 'aus' : `${v} Sekunden`)}
+        />
+      </Card>
+    </Section>
   );
 }
 
@@ -254,6 +293,7 @@ function ActionRow({
 }
 
 const styles = StyleSheet.create({
+  sliderHead: { flexDirection: 'row', justifyContent: 'space-between' },
   banner: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, marginBottom: space.lg },
   result: { marginBottom: space.lg, borderRadius: radius.md },
 });

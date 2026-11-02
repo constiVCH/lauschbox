@@ -79,6 +79,11 @@ export function BoxSimulator({ onDragChange }: { onDragChange?: (dragging: boole
         </View>
       </View>
 
+      {s.removalPending && (
+        <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
+          Token abgenommen. Die Box spielt noch {s.settings.removeGraceS.toLocaleString('de-DE')} s weiter, falls er zurückkommt.
+        </Txt>
+      )}
       {s.sim && canPlace ? (
         <View style={{ gap: space.sm }}>
           <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }}>

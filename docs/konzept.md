@@ -36,7 +36,8 @@
 
    Je nach Einstellung beim gespeicherten Stand (Titel + Position) fortsetzen oder von vorn.
    Spotify-Token ohne Internet → LED-Signal „kein Netz“ (siehe [Offline-Betrieb](#lokale-medien--offline-betrieb)).
-4. Token abnehmen → Pause (einstellbar), Stand speichern.
+4. Token abnehmen → nach einer Nachfrist (ab Werk 2 s, in der App 0–5 s) Pause und Stand speichern. Kommt derselbe Token
+   in der Nachfrist zurück (Wackeln, Lesefehler), läuft es nahtlos weiter; ein anderer Token wechselt sofort.
 
 **Token anlernen (App)**
 1. App: „Neuer Token“ → Box geht in Lernmodus (LED blau pulsierend). Liegt schon ein leerer Token auf, gilt er sofort.
