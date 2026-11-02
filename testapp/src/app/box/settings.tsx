@@ -92,7 +92,7 @@ function Settings({ pin }: { pin: string }) {
         </Card>
       )}
 
-      <SpotifySection busy={busy} onRun={run} disabled={!managed} />
+      <SpotifySection />
 
       <Section title="Box" footer="Nach einem Update oder Neustart verbindet sich die App von selbst wieder.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
@@ -188,86 +188,36 @@ function HardwareSection() {
   );
 }
 
-/** Wer ist bei Spotify angemeldet, Suche, Neustart und Kontowechsel. */
-function SpotifySection({
-  busy,
-  onRun,
-  disabled,
-}: {
-  busy: SystemAction | null;
-  onRun: (action: SystemAction, ask?: { title: string; message: string; button: string; destructive?: boolean }) => void;
-  disabled: boolean;
-}) {
+/** Eine Zeile mit Zusammenfassung; alles Weitere (Anmelden, Suche, Neustart) auf der Seite „Spotify“. */
+function SpotifySection() {
   const c = useColors();
   const { account, error } = useSpotifyAccount();
-
-  let who: { title: string; subtitle?: string };
-  if (error) who = { title: 'Unbekannt', subtitle: error };
-  else if (!account) who = { title: 'Wird geladen …' };
-  else if (!account.available) who = { title: 'Spotify läuft nicht', subtitle: 'go-librespot antwortet nicht. „Spotify neu starten“ hilft meist.' };
-  else if (account.username)
-    who = {
-      title: account.displayName ?? account.username,
-      subtitle: account.displayName ? `Benutzername ${account.username}` : 'Anzeigename erscheint, sobald die Suche eingerichtet ist',
-    };
-  else who = { title: 'Niemand angemeldet' };
-
   const searchReady = account?.search === 'app' || account?.search === 'simulated';
+  const name = account?.displayName ?? account?.username;
+
+  let subtitle: string;
+  let ok = false;
+  if (error) subtitle = error;
+  else if (!account) subtitle = 'Wird geladen …';
+  else if (!account.available) subtitle = 'Spotify läuft nicht – antippen zum Neustarten';
+  else if (!account.username) subtitle = account.pair ? `Nicht angemeldet · Code ${account.pair.code}` : 'Nicht angemeldet';
+  else {
+    ok = true;
+    subtitle = `${name} · Suche ${searchReady ? 'an' : 'aus'}`;
+  }
   return (
-    <Section title="Spotify" footer="Ein Konto für die ganze Box. Ein betreutes Kinderkonto im Family-Abo kann funktionieren, einfach ausprobieren.">
-      {account && !account.username && account.pair && <PairCode code={account.pair.code} />}
+    <Section title="Spotify" footer="Anmelden, Konto wechseln, Suche einrichten und neu starten: alles auf der Seite „Spotify“.">
       <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-        <Row first title={who.title} subtitle={who.subtitle} icon="person" iconColor={c.success} />
         <Row
-          title="Suche"
-          subtitle={searchReady ? 'Eingerichtet' : 'Nicht eingerichtet. Ohne eigene Spotify-App bremst Spotify die Suche.'}
-          icon="search"
-          iconColor={searchReady ? c.success : c.warning}
-          trailing={<Button label={searchReady ? 'Ändern' : 'Einrichten'} kind="secondary" compact onPress={() => router.push('/spotify-setup' as Href)} />}
-        />
-        <ActionRow
-          title="Spotify neu starten"
-          subtitle="Wenn nichts mehr spielt oder die Box nicht reagiert"
-          icon="refresh"
-          busy={busy === 'restart-spotify'}
-          disabled={disabled || !!busy}
-          onPress={() => onRun('restart-spotify')}
-        />
-        <ActionRow
-          title="Anderes Konto anmelden"
-          subtitle="Meldet die Box ab; danach erscheint hier ein Code für spotify.com/pair"
-          icon="swap-horizontal"
-          busy={busy === 'spotify-logout'}
-          disabled={disabled || !!busy}
-          onPress={() =>
-            onRun('spotify-logout', {
-              title: 'Spotify abmelden?',
-              message: 'Die Box spielt erst wieder, wenn du den neuen Code auf spotify.com/pair eingegeben hast. Die Token bleiben erhalten.',
-              button: 'Abmelden',
-              destructive: true,
-            })
-          }
+          first
+          title="Spotify"
+          subtitle={subtitle}
+          icon={ok ? 'checkmark-circle' : 'alert-circle'}
+          iconColor={ok ? c.success : c.warning}
+          onPress={() => router.push('/spotify-setup' as Href)}
         />
       </Card>
     </Section>
-  );
-}
-
-/** Code für spotify.com/pair, groß und kopierbar. */
-function PairCode({ code }: { code: string }) {
-  const c = useColors();
-  return (
-    <Card style={[styles.pair, { backgroundColor: c.success + '1A' }]}>
-      <Txt variant="footnote" color="secondary">
-        Auf spotify.com/pair eingeben, im Browser des Kontos, mit dem die Box spielen soll:
-      </Txt>
-      <Txt variant="largeTitle" selectable style={styles.code}>
-        {code}
-      </Txt>
-      <Txt variant="footnote" color="secondary">
-        Die Anmeldung erscheint hier von selbst, sobald sie geklappt hat.
-      </Txt>
-    </Card>
   );
 }
 
@@ -282,7 +232,7 @@ function ActionRow({
 }: {
   title: string;
   subtitle?: string;
-  icon: 'refresh' | 'power' | 'moon' | 'cloud-download' | 'swap-horizontal';
+  icon: 'refresh' | 'power' | 'moon' | 'cloud-download';
   onPress: () => void;
   busy?: boolean;
   disabled?: boolean;
@@ -306,6 +256,4 @@ function ActionRow({
 const styles = StyleSheet.create({
   banner: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, marginBottom: space.lg },
   result: { marginBottom: space.lg, borderRadius: radius.md },
-  pair: { alignItems: 'center', gap: space.sm },
-  code: { letterSpacing: 6, fontVariant: ['tabular-nums'] },
 });

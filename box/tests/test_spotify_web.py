@@ -45,3 +45,28 @@ def test_titelliste_ueber_mehrere_seiten(monkeypatch):
     tracks = asyncio.run(sw.tracks_web(None, "x", "spotify:playlist:abc"))
     assert [t["uri"] for t in tracks] == ["t1", "t2"] and tracks[1]["duration_ms"] == 2000
     assert asyncio.run(sw.tracks_web(None, "x", "spotify:show:abc")) is None  # Podcasts nicht
+
+
+def test_anzeigename_von_der_profilseite(monkeypatch):
+    import asyncio
+
+    import lauschbox.spotify_web as sw
+
+    class Resp:
+        status = 200
+
+        async def text(self):
+            return '<html><head><meta property="og:title" content="Mama &amp; Papa"/></head></html>'
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    class Session:
+        def get(self, url, headers=None):
+            assert url.endswith("/user/31abc")
+            return Resp()
+
+    assert asyncio.run(sw.display_name_public(Session(), "31abc")) == "Mama & Papa"

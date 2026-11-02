@@ -11,7 +11,9 @@ interne Dienste nutzt und nicht die gedrosselte Web API.
 from __future__ import annotations
 
 import base64
+import html
 import logging
+import re
 import time
 
 import aiohttp
@@ -183,6 +185,20 @@ async def tracks_web(session: aiohttp.ClientSession, token: str, uri: str, marke
 async def _get_url(session: aiohttp.ClientSession, token: str, url: str) -> dict:
     """Folgeseite (Spotify liefert die volle URL in `next`)."""
     return await _get(session, token, url.replace(API, ""), {})
+
+
+async def display_name_public(session: aiohttp.ClientSession, username: str) -> str | None:
+    """Anzeigename von der öffentlichen Profilseite (og:title), ohne Anmeldung und ohne Entwickler-App."""
+    try:
+        async with session.get(f"https://open.spotify.com/user/{username}", headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "de"}) as resp:
+            if resp.status != 200:
+                return None
+            page = await resp.text()
+    except (aiohttp.ClientError, TimeoutError):
+        return None
+    m = re.search(r'<meta property="og:title" content="([^"]*)"', page)
+    name = html.unescape(m.group(1)).strip() if m else ""
+    return name or None
 
 
 async def display_name(session: aiohttp.ClientSession, token: str, username: str) -> str | None:

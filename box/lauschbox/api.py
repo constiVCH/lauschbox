@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import socket
+import time
 
 import aiohttp
 from aiohttp import WSMsgType, web
@@ -151,18 +152,28 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
                 text=f"{e} Deine go-librespot-Version kann die Bibliothek nicht selbst lesen; ein Update hilft (siehe docs/pi-setup.md)."
             ) from e
 
+    async def display_name_for(http: aiohttp.ClientSession, username: str) -> str | None:
+        """Anzeigename: erst die öffentliche Profilseite, sonst die Web API. Fehlschläge nur 10 min merken."""
+        cached = spot["names"].get(username)
+        if cached and (cached[0] or time.monotonic() - cached[1] < 600):
+            return cached[0]
+        name = await spotify_web.display_name_public(http, username)
+        if not name and spot["app"]:
+            try:
+                name = await spotify_web.display_name(http, await spot["app"].get(http), username)
+            except spotify_web.SpotifyWebError:
+                name = None
+        spot["names"][username] = (name, time.monotonic())
+        return name
+
     @r.get("/api/spotify/account")
     async def account(request: web.Request) -> web.Response:
         """Wer ist auf der Box bei Spotify angemeldet, und ist die Suche eingerichtet?"""
         status = engine.player.status
         username = status.username
-        name = spot["names"].get(username) if username else None
-        if username and name is None and spot["app"] and not request.app[SIM]:
-            try:
-                name = await spotify_web.display_name(request.app[HTTP], await spot["app"].get(request.app[HTTP]), username)
-            except spotify_web.SpotifyWebError:
-                name = None
-            spot["names"][username] = name or ""
+        name = None
+        if username and not request.app[SIM]:
+            name = await display_name_for(request.app[HTTP], username)
         pair = None if username else await engine.player.auth_code()
         return web.json_response({
             "available": status.available,
