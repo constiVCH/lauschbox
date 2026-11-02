@@ -528,3 +528,37 @@ def test_kapitelwechsel_schaltet_nicht_stumm(box, monkeypatch):
         await engine.close()
 
     run(go())
+
+
+def test_verstaerker_wartet_auf_den_echten_start(box, monkeypatch):
+    """go-librespot braucht zum Laden länger: eingeschaltet wird erst nach seiner „playing“-Meldung."""
+    import time as _time
+    from dataclasses import replace
+
+    import lauschbox.engine as eng
+
+    monkeypatch.setattr(eng, "AMP_ON_DELAY_S", 0.05)
+
+    async def go():
+        engine, player = await box()
+        amp = FakeAmp(player)
+        engine.amp = amp
+
+        async def slow_play(uri, skip_to_uri=None, position_ms=0):
+            async def later():
+                await asyncio.sleep(0.5)  # Titel laden, dann erst Ton
+                player.status = replace(player.status, playing=True, context_uri=uri, track_uri=uri + "#track1",
+                                        track_number=1, duration_ms=FakePlayer.TRACK_MS, position_ms=0, at=_time.monotonic())
+                player._emit("playing")
+
+            asyncio.ensure_future(later())
+
+        player.play = slow_play
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.3)
+        assert amp.muted  # noch am Laden: stumm, sonst knackt es hörbar
+        await asyncio.sleep(0.4)
+        assert not amp.muted and amp.log[-1] == ("an", True)
+        await engine.close()
+
+    run(go())
