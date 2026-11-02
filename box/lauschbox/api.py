@@ -432,16 +432,17 @@ async def errors(request: web.Request, handler):
 @web.middleware
 async def cors(request: web.Request, handler):
     # Für die App im Browser (Expo Web); die Handy-App braucht das nicht
-    if request.method == "OPTIONS":
-        resp = web.Response()
-    else:
-        try:
-            resp = await handler(request)
-        except web.HTTPException as e:
-            resp = e
-    if isinstance(resp, web.WebSocketResponse):
+    def allow(resp: web.StreamResponse) -> web.StreamResponse:
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Parent-Pin"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         return resp
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Parent-Pin"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    return resp
+
+    if request.method == "OPTIONS":
+        return allow(web.Response())
+    try:
+        resp = await handler(request)
+    except web.HTTPException as e:
+        allow(e)  # Fehlermeldungen muss der Browser auch lesen dürfen
+        raise
+    return resp if isinstance(resp, web.WebSocketResponse) else allow(resp)

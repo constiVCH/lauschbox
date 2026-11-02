@@ -92,6 +92,8 @@ class Nfc(Part):
         self.mode = mode
 
     def start(self) -> None:
+        if getattr(self, "pn532", None):
+            return  # Lese-Thread läuft schon und verbindet sich selbst neu; ein zweiter würde dieselbe Leitung lesen
         try:
             self.pn532, self.detail = open_pn532(self.mode)
             self.pn532.SAM_configuration()
