@@ -506,6 +506,8 @@ class Engine:
         self.settings.max_volume = max(10, min(100, self.settings.max_volume))
         self.settings.remove_grace_s = max(0.0, min(5.0, self.settings.remove_grace_s))
         self.settings.fade_in_s = max(0.0, min(3.0, self.settings.fade_in_s))
+        self.settings.led_brightness = max(0.02, min(1.0, self.settings.led_brightness))
+        self.settings.night_brightness = max(0.02, min(1.0, self.settings.night_brightness))
         self.store.save_settings(self.settings)
         self._changed()
         return self.settings

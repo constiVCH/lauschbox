@@ -96,6 +96,7 @@ function Settings({ pin }: { pin: string }) {
       <SpotifySection />
 
       <BehaviorSection />
+      <LedSection />
 
       <Section title="Box" footer="Nach einem Update oder Neustart verbindet sich die App von selbst wieder.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
@@ -194,7 +195,53 @@ function BehaviorSection() {
   );
 }
 
-function SettingSlider({ title, value, max, format, onEnd }: { title: string; value: number; max: number; format: (v: number) => string; onEnd: (v: number) => void }) {
+/** Helligkeit des LED-Rings, tagsüber und zur Schlafenszeit. Gilt für alle Anzeigen, auch die Lautstärke. */
+function LedSection() {
+  const { view, api } = useBox();
+  const pct = (v: number) => `${Math.round(v)} %`;
+  return (
+    <Section title="LED-Ring" footer="Gilt für alles, was der Ring zeigt: Fortschritt, Lautstärke, Hinweise. Zur Schlafenszeit gilt der zweite Wert.">
+      <Card style={{ gap: space.lg }}>
+        <SettingSlider
+          title="Helligkeit"
+          value={Math.round(view.settings.ledBrightness * 100)}
+          min={5}
+          max={100}
+          step={5}
+          format={pct}
+          onEnd={(v) => api.setSettings({ ledBrightness: v / 100 })}
+        />
+        <SettingSlider
+          title="Zur Schlafenszeit"
+          value={Math.round(view.settings.nightBrightness * 100)}
+          min={2}
+          max={50}
+          step={2}
+          format={pct}
+          onEnd={(v) => api.setSettings({ nightBrightness: v / 100 })}
+        />
+      </Card>
+    </Section>
+  );
+}
+
+function SettingSlider({
+  title,
+  value,
+  min = 0,
+  max,
+  step = 0.5,
+  format,
+  onEnd,
+}: {
+  title: string;
+  value: number;
+  min?: number;
+  max: number;
+  step?: number;
+  format: (v: number) => string;
+  onEnd: (v: number) => void;
+}) {
   const [draft, setDraft] = useState<number | null>(null);
   const shown = draft ?? value;
   return (
@@ -208,9 +255,9 @@ function SettingSlider({ title, value, max, format, onEnd }: { title: string; va
       <Slider
         label={title}
         value={shown}
-        min={0}
+        min={min}
         max={max}
-        step={0.5}
+        step={step}
         onChange={setDraft}
         onEnd={(v) => {
           setDraft(null);

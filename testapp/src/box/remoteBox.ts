@@ -23,7 +23,7 @@ type RawState = {
   placed: string | null;
   loaded: string | null;
   removal_pending?: boolean;
-  settings: { remove_grace_s?: number; fade_in_s?: number };
+  settings: { remove_grace_s?: number; fade_in_s?: number; led_brightness?: number; night_brightness?: number };
   volume: number;
   volume_cap: number;
   locked: boolean;
@@ -225,7 +225,12 @@ export class RemoteBox {
       notice: this.localNotice ?? r.notice,
       sim: r.box.simulated ? { tray: [...r.tokens.map((t) => t.uid), this.blankUid] } : null,
       hardware: r.box.hardware ?? {},
-      settings: { removeGraceS: r.settings?.remove_grace_s ?? 2, fadeInS: r.settings?.fade_in_s ?? 1 },
+      settings: {
+        removeGraceS: r.settings?.remove_grace_s ?? 2,
+        fadeInS: r.settings?.fade_in_s ?? 1,
+        ledBrightness: r.settings?.led_brightness ?? 0.25,
+        nightBrightness: r.settings?.night_brightness ?? 0.08,
+      },
       removalPending: !!r.removal_pending,
     };
   }
@@ -295,6 +300,8 @@ export class RemoteBox {
       const body: Record<string, unknown> = {};
       if (patch.removeGraceS !== undefined) body.remove_grace_s = patch.removeGraceS;
       if (patch.fadeInS !== undefined) body.fade_in_s = patch.fadeInS;
+      if (patch.ledBrightness !== undefined) body.led_brightness = patch.ledBrightness;
+      if (patch.nightBrightness !== undefined) body.night_brightness = patch.nightBrightness;
       await this.call('PUT', '/api/settings', body).catch((e) => this.fail(e));
     },
     verifyPin: async (pin) => (await this.call<{ ok: boolean }>('POST', '/api/kidmode/verify', { pin })).ok,

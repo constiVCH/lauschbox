@@ -120,6 +120,9 @@ export type BoxSettings = {
   removeGraceS: number;
   /** Beim Start so lange von leise auf die eingestellte Lautstärke einblenden (0 = aus) */
   fadeInS: number;
+  /** Helligkeit des LED-Rings 0..1 (gilt für alle Anzeigen, auch die Lautstärke); nachts der zweite Wert */
+  ledBrightness: number;
+  nightBrightness: number;
 };
 
 export type SystemAction = 'restart-spotify' | 'restart-box' | 'reboot' | 'poweroff' | 'spotify-logout' | 'update';
