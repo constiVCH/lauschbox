@@ -91,8 +91,11 @@ sudo systemctl daemon-reload && sudo systemctl enable --now go-librespot
 curl -s localhost:3678/status
 ```
 
-## 4. Spotify-Developer-App (nur für die Suche, später)
-Noch nicht nötig: Token lernt man vorerst per Spotify-Link an, das geht ohne Login.
+## 4. Spotify-Developer-App (für die Suche in der App)
+Wird in der App eingerichtet: Tab „Box“ → Spotify → „Einrichten“. Dort steht Schritt für Schritt, was zu tun ist
+(App anlegen, Client-ID und Client-Secret einfügen). Ohne sie gehen „Meine“ und Links trotzdem.
+
+Die alten Schritte unten sind nur noch für den Spike `spotify_spike.py` nötig:
 Zum Abspielen reicht go-librespot. Die Web API brauchen wir nur für die Suche beim Anlernen von Token.
 1. https://developer.spotify.com/dashboard → App anlegen, „Web API“ auswählen.
 2. Redirect URI: `http://127.0.0.1:8888/callback` (Spotify akzeptiert nur Loopback-IP, nicht `localhost`).

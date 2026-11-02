@@ -521,6 +521,7 @@ class Engine:
                 "position_ms": self.player.position(),
                 "duration_ms": s.duration_ms,
                 "error": s.error,
+                "username": s.username,
             },
             "placed": self.placed,
             "placed_known": token is not None,

@@ -1,6 +1,6 @@
 import { baseUrl } from '@/hw/hardware';
 
-import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice } from './types';
+import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice, type SpotifyAccount } from './types';
 
 /** Zustand, wie ihn der box-daemon schickt (box/lauschbox/engine.py, snapshot()). */
 type RawMedium = { uri: string; title: string; kind: string; cover_url: string | null; subtitle?: string; track_count?: number | null };
@@ -300,5 +300,20 @@ export class RemoteBox {
     search: async (query) =>
       (await this.call<RawMedium[]>('GET', `/api/spotify/search?q=${encodeURIComponent(query)}`)).map(medium),
     library: async () => (await this.call<RawMedium[]>('GET', '/api/spotify/library')).map(medium),
+    spotifyAccount: async () => {
+      const a = await this.call<{
+        available: boolean;
+        username: string | null;
+        display_name: string | null;
+        pair: { url: string; code: string } | null;
+        search: SpotifyAccount['search'];
+        client_id: string | null;
+      }>('GET', '/api/spotify/account');
+      return { available: a.available, username: a.username, displayName: a.display_name, pair: a.pair, search: a.search, clientId: a.client_id };
+    },
+    setSpotifyApp: async (app) => {
+      if (app) await this.call('PUT', '/api/spotify/app', { client_id: app.clientId, client_secret: app.clientSecret });
+      else await this.call('DELETE', '/api/spotify/app');
+    },
   };
 }

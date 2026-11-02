@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -275,9 +275,21 @@ function SearchResults({ api, selected, onPick }: { api: BoxApi; selected?: stri
         {busy && <ActivityIndicator color={c.textSecondary} />}
       </View>
       {failure ? (
-        <Txt variant="footnote" color={c.danger}>
-          {failure}
-        </Txt>
+        <View style={{ gap: space.sm }}>
+          <Txt variant="footnote" color={c.danger}>
+            {failure}
+          </Txt>
+          {api.setSpotifyApp && (
+            <Button
+              label="Suche einrichten"
+              icon="settings-outline"
+              kind="secondary"
+              compact
+              onPress={() => router.push('/spotify-setup' as Href)}
+              style={{ alignSelf: 'flex-start' }}
+            />
+          )}
+        </View>
       ) : (
         !tooShort && results && <MediumList items={results} selected={selected} onPick={onPick} empty={`Nichts gefunden für „${query.trim()}“.`} />
       )}

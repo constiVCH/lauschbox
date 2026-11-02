@@ -97,10 +97,17 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             raise web.HTTPBadRequest(text=str(e)) from e
         return web.json_response({"uri": medium.uri, "title": medium.title, "kind": medium.kind, "cover_url": medium.cover_url})
 
-    async def web_token() -> str:
+    # Zugang über die eigene Spotify-App (falls eingerichtet) und Cache für Anzeigenamen
+    creds = engine.store.spotify_app()
+    spot: dict = {
+        "app": spotify_web.AppToken(creds["client_id"], creds["client_secret"]) if creds.get("client_id") else None,
+        "names": {},
+    }
+
+    async def box_token() -> str:
         token = await engine.player.web_token()
         if not token:
-            raise web.HTTPServiceUnavailable(text="Spotify-Suche geht nur, wenn go-librespot läuft und angemeldet ist. Ein Link geht immer.")
+            raise web.HTTPServiceUnavailable(text="Spotify ist auf der Box nicht angemeldet (go-librespot). Ein Link geht immer.")
         return token
 
     @r.get("/api/spotify/search")
@@ -110,9 +117,17 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             return web.json_response([])
         if request.app[SIM]:
             return web.json_response(spotify_web.fake_search(q))
+        http = request.app[HTTP]
         try:
-            return web.json_response(await spotify_web.search(request.app[HTTP], await web_token(), q))
+            if spot["app"]:
+                return web.json_response(await spotify_web.search(http, await spot["app"].get(http), q, market=spotify_web.APP_MARKET))
+            return web.json_response(await spotify_web.search(http, await box_token(), q))
         except spotify_web.SpotifyWebError as e:
+            if not spot["app"] and e.status in (401, 403, 429):
+                raise web.HTTPBadGateway(
+                    text="Spotify lässt die Suche über die Anmeldung der Box nicht zu. Richte die Suche einmal ein: "
+                    "Tab „Box“ → Spotify → „Suche einrichten“. Bis dahin geht „Meine“ oder ein Link."
+                ) from e
             raise web.HTTPBadGateway(text=str(e)) from e
 
     @r.get("/api/spotify/library")
@@ -120,10 +135,61 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
         """Eigene Playlists und gespeicherte Alben aus dem Spotify-Konto der Box."""
         if request.app[SIM]:
             return web.json_response(spotify_web.fake_library())
+        playlists = await engine.player.library("playlists")
+        if playlists is not None:
+            albums = await engine.player.library("albums") or {"items": []}
+            return web.json_response(spotify_web.library_from_librespot(playlists, albums))
+        # Ältere go-librespot-Version: über die Web API versuchen
         try:
-            return web.json_response(await spotify_web.library(request.app[HTTP], await web_token()))
+            return web.json_response(await spotify_web.library_web(request.app[HTTP], await box_token()))
         except spotify_web.SpotifyWebError as e:
-            raise web.HTTPBadGateway(text=str(e)) from e
+            raise web.HTTPBadGateway(
+                text=f"{e} Deine go-librespot-Version kann die Bibliothek nicht selbst lesen; ein Update hilft (siehe docs/pi-setup.md)."
+            ) from e
+
+    @r.get("/api/spotify/account")
+    async def account(request: web.Request) -> web.Response:
+        """Wer ist auf der Box bei Spotify angemeldet, und ist die Suche eingerichtet?"""
+        status = engine.player.status
+        username = status.username
+        name = spot["names"].get(username) if username else None
+        if username and name is None and spot["app"] and not request.app[SIM]:
+            try:
+                name = await spotify_web.display_name(request.app[HTTP], await spot["app"].get(request.app[HTTP]), username)
+            except spotify_web.SpotifyWebError:
+                name = None
+            spot["names"][username] = name or ""
+        pair = None if username else await engine.player.auth_code()
+        return web.json_response({
+            "available": status.available,
+            "username": "Simulation" if request.app[SIM] else username,
+            "display_name": name or None,
+            "pair": pair,
+            "search": "simulated" if request.app[SIM] else ("app" if spot["app"] else "box"),
+            "client_id": spot["app"].client_id if spot["app"] else None,
+        })
+
+    @r.put("/api/spotify/app")
+    async def set_app(request: web.Request) -> web.Response:
+        """Eigene Spotify-App für die Suche hinterlegen; wird vor dem Speichern bei Spotify geprüft."""
+        body = await request.json()
+        client_id, secret = str(body.get("client_id", "")).strip(), str(body.get("client_secret", "")).strip()
+        if len(client_id) != 32 or len(secret) != 32:
+            raise web.HTTPBadRequest(text="Client-ID und Client-Secret sind je 32 Zeichen lang. Bitte vollständig kopieren.")
+        candidate = spotify_web.AppToken(client_id, secret)
+        try:
+            await candidate.get(request.app[HTTP])
+        except spotify_web.SpotifyWebError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
+        engine.store.save_spotify_app({"client_id": client_id, "client_secret": secret})
+        spot["app"], spot["names"] = candidate, {}
+        return web.json_response({"ok": True})
+
+    @r.delete("/api/spotify/app")
+    async def delete_app(request: web.Request) -> web.Response:
+        engine.store.save_spotify_app({})
+        spot["app"], spot["names"] = None, {}
+        return web.json_response({"ok": True})
 
     @r.get("/api/spotify/auth-code")
     async def auth_code(request: web.Request) -> web.Response:

@@ -86,6 +86,18 @@ export type BoxView = {
 
 export type BoxButton = 'minus' | 'play' | 'plus';
 
+/** Spotify-Anmeldung der Box */
+export type SpotifyAccount = {
+  available: boolean;
+  username: string | null;
+  displayName: string | null;
+  /** Code für spotify.com/pair, solange niemand angemeldet ist */
+  pair: { url: string; code: string } | null;
+  /** app = eigene Spotify-App eingerichtet, box = nur Anmeldung der Box (wird oft gedrosselt) */
+  search: 'app' | 'box' | 'simulated';
+  clientId: string | null;
+};
+
 export interface BoxApi {
   togglePlay(): void;
   /** Aufgelegten Token von vorn starten (wie Play lang drücken) */
@@ -112,6 +124,10 @@ export interface BoxApi {
   search?(query: string): Promise<Medium[]>;
   /** Echte Box: eigene Playlists und gespeicherte Alben */
   library?(): Promise<Medium[]>;
+  /** Echte Box: angemeldetes Spotify-Konto */
+  spotifyAccount?(): Promise<SpotifyAccount>;
+  /** Echte Box: eigene Spotify-App für die Suche hinterlegen (null = entfernen) */
+  setSpotifyApp?(app: { clientId: string; clientSecret: string } | null): Promise<void>;
   /** Demo: fester Katalog statt Spotify */
   catalog?: Medium[];
   demo?: { setSpeed(speed: 1 | 30): void; setBedtime(on: boolean): void };

@@ -17,6 +17,7 @@ export default function RootLayout() {
           <Stack.Screen name="box" />
           <Stack.Screen name="hardware" />
           <Stack.Screen name="token-edit" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
+          <Stack.Screen name="spotify-setup" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
         </Stack>
       </ActiveBoxProvider>
     </GestureHandlerRootView>

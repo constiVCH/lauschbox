@@ -53,9 +53,15 @@
 Nur ein Login, auf der Box:
 - **Wiedergabe (go-librespot):** einmalig per Device-Code (`credentials.type: device_auth`). go-librespot zeigt einen Code
   (auch über `GET /auth/code`), der auf spotify.com/pair eingegeben wird. Die App kann diesen Code später direkt anzeigen.
-- **Suche und eigene Bibliothek (Web API):** Die Box holt sich den Zugangsschlüssel von go-librespot (`POST /token`)
-  und fragt damit die Spotify Web API. Eine eigene Spotify-Developer-App oder ein Login in der App ist nicht nötig.
-  Fällt das weg (z. B. ändert Spotify etwas), bleibt der Weg über den Link.
+- **Eigene Bibliothek (Playlists, gespeicherte Alben):** direkt von go-librespot (`/library/playlists`, `/library/albums`),
+  das dafür Spotifys interne Dienste nutzt. Ältere go-librespot-Versionen kennen das nicht; dann versucht die Box die Web API.
+- **Suche (Web API):** über eine **eigene Spotify-Developer-App** (Client-ID + Secret, Client-Credentials-Verfahren,
+  nur Katalog, kein Benutzer-Login). Einrichten in der App: Tab „Box“ → Spotify → „Einrichten“. Ohne sie versucht die Box
+  den Schlüssel von go-librespot (`POST /token`); den drosselt Spotify aber stark (429).
+- **Angemeldetes Konto:** go-librespot meldet den Benutzernamen (`/status`), den Anzeigenamen holt die Box über die
+  Web API (`/users/{name}`), sobald die Suche eingerichtet ist. Die App zeigt beides im Tab „Box“ unter „Spotify“.
+- **Konto wechseln:** go-librespot beenden, `~/.config/go-librespot/state.json` zur Seite legen, neu starten und den neuen
+  Code auf spotify.com/pair eingeben (im Browser des gewünschten Kontos).
 
 Für die eigentliche Wiedergabe braucht die Box die Web API nicht. Wenn die Web API ausfällt oder ihre Limits erreicht sind,
 spielen die Token trotzdem weiter.
@@ -194,6 +200,9 @@ GET    /api/spotify/auth-code      Code für spotify.com/pair, solange go-libres
 POST   /api/player/{toggle|next|prev|restart}   restart = aufgelegten Token von vorn
 GET    /api/spotify/search?q=      Suche (Alben, Playlists, Hörbücher, Podcasts) → [{uri, title, kind, subtitle, cover_url, track_count}]
 GET    /api/spotify/library        eigene Playlists und gespeicherte Alben
+GET    /api/spotify/account        {available, username, display_name, pair: {url, code}|null, search: app|box, client_id}
+PUT    /api/spotify/app            {client_id, client_secret} eigene Spotify-App für die Suche (wird bei Spotify geprüft)
+DELETE /api/spotify/app
 POST   /api/player/seek            {position_ms}
 POST   /api/player/volume          {volume} (wird auf die erlaubte Grenze gekappt)
 POST   /api/button                 {name: play_pause|lauter|leiser|lock, press: kurz|lang} (Taster fernbedienen)

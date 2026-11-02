@@ -29,6 +29,7 @@ class PlayerStatus:
     at: float = field(default_factory=time.monotonic)
     volume: int = 0
     error: str | None = None
+    username: str | None = None  # angemeldetes Spotify-Konto
 
     def position_now(self) -> int:
         if not self.playing:
@@ -60,6 +61,10 @@ class Player:
 
     async def web_token(self) -> str | None:
         """Zugangsschlüssel für die Spotify Web API (Suche), sofern der Player angemeldet ist."""
+        return None
+
+    async def library(self, kind: str) -> dict | None:
+        """Eigene Playlists (kind=playlists) oder gespeicherte Alben (albums). None = kann dieser Player nicht."""
         return None
 
     def position(self) -> int:
@@ -123,6 +128,7 @@ class SpotifyPlayer(Player):
             duration_ms=int(track.get("duration") or 0),
             position_ms=int(track.get("position") or 0),
             volume=int(data.get("volume") or 0),
+            username=data.get("username") or None,
         )
         self._emit(reason)
 
@@ -188,6 +194,21 @@ class SpotifyPlayer(Player):
             async with self._session.get(self.base + "/auth/code") as resp:
                 return await resp.json() if resp.status == 200 else None
         except (aiohttp.ClientError, asyncio.TimeoutError):
+            return None
+
+    async def library(self, kind: str) -> dict | None:
+        # Über Spotifys interne Dienste, nicht über die gedrosselte Web API. Ältere go-librespot-Versionen kennen das nicht (404).
+        assert self._session
+        try:
+            async with self._session.get(f"{self.base}/library/{kind}", params={"limit": 200}) as resp:
+                if resp.status == 404:
+                    return None
+                if resp.status == 204:
+                    return {"items": []}
+                if resp.status != 200:
+                    return None
+                return await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
             return None
 
     async def web_token(self) -> str | None:

@@ -167,5 +167,12 @@ class Store:
     def save_kid(self, k: KidMode) -> None:
         self._put("kid", asdict(k))
 
+    def spotify_app(self) -> dict:
+        """Client-ID und -Secret der eigenen Spotify-Entwickler-App (für die Suche), leer wenn nicht eingerichtet."""
+        return self._get("spotify_app")
+
+    def save_spotify_app(self, value: dict) -> None:
+        self._put("spotify_app", value)
+
     def close(self) -> None:
         self.db.close()
