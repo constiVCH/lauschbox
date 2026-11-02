@@ -79,14 +79,14 @@ function ledColors(mode: LedMode, color: string, fill: number, t: number): Led[]
       return Array(N).fill(null);
     case 'idle': {
       const head = Math.floor(t * 4) % N;
-      return Array.from({ length: N }, (_, i) => (i === head ? { color: '#FFFFFF', alpha: 0.5 } : null));
+      return Array.from({ length: N }, (_, i) => (i === head ? { color: '#FFFFFF', alpha: 0.25 } : null));
     }
     case 'playing':
-      return filled(color, 0.08);
+      return filled(color, 0);
     case 'paused':
-      return filled(color, 0.06, pulse);
+      return filled(color, 0, pulse);
     case 'volume':
-      return filled('#FFFFFF', 0.05);
+      return filled('#FFFFFF', 0);
     case 'learn':
       return all(color, pulse);
     case 'unknown':

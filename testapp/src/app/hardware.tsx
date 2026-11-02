@@ -110,9 +110,13 @@ function Components({ status, onRefresh }: { status: HwStatus; onRefresh: () => 
         ))}
         <Row
           title="I2C-Bus"
-          subtitle={status.i2c.length ? status.i2c.map((d) => `${d.address}${d.name ? ` ${d.name}` : ''}`).join(', ') : 'Keine Geräte gefunden'}
+          subtitle={
+            status.i2c.length
+              ? status.i2c.map((d) => `${d.address}${d.name ? ` ${d.name}` : ''}`).join(', ')
+              : 'Leer. Normal, solange kein PiSugar dran ist (der NFC-Leser hängt an UART).'
+          }
           icon="hardware-chip"
-          iconColor={status.i2c.some((d) => d.address === '0x24') ? c.success : c.warning}
+          iconColor={status.i2c.length ? c.success : c.textTertiary}
         />
         <Row
           title={`CPU ${status.cpu_temp_c ?? '–'} °C`}

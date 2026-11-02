@@ -21,6 +21,8 @@ HOLD_S = 1.0
 # So viele Fehllesungen hintereinander, bis ein Token als abgenommen gilt (ca. 0,6 s).
 # Der PN532 verpasst einen aufliegenden Token gelegentlich; sonst würde die Box ständig kurz pausieren.
 MISSES_FOR_REMOVAL = 3
+# Helligkeit des laufenden Punkts im Ruhezustand (Anteil der eingestellten LED-Helligkeit)
+IDLE_LEVEL = 0.15
 
 
 def open_pn532(mode: str = "auto"):
@@ -229,13 +231,14 @@ def led_frame(led: dict, t: float) -> list[tuple[int, int, int]]:
 
     if mode == "idle":
         head = int(t * 4) % NUM_LEDS
-        return [dim((255, 255, 255), 0.5) if i == head else (0, 0, 0) for i in range(NUM_LEDS)]
+        return [dim((255, 255, 255), IDLE_LEVEL) if i == head else (0, 0, 0) for i in range(NUM_LEDS)]
     if mode == "playing":
-        return [dim(color, 1 if i < lit else 0.08) for i in range(NUM_LEDS)]
+        # Nicht erreichte LEDs bleiben aus: schon ein schwacher Rest wirkt am echten Ring wie „alles an“
+        return [dim(color, 1 if i < lit else 0) for i in range(NUM_LEDS)]
     if mode == "paused":
-        return [dim(color, pulse if i < lit else 0.06) for i in range(NUM_LEDS)]
+        return [dim(color, pulse if i < lit else 0) for i in range(NUM_LEDS)]
     if mode == "volume":
-        return [dim((255, 255, 255), 1 if i < lit else 0.05) for i in range(NUM_LEDS)]
+        return [dim((255, 255, 255), 1 if i < lit else 0) for i in range(NUM_LEDS)]
     if mode in ("learn", "denied"):
         return [dim(color, pulse)] * NUM_LEDS
     if mode in ("unknown", "locked", "unlocked", "error"):
