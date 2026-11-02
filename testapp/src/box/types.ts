@@ -112,6 +112,8 @@ export type BoxView = {
   sim: { tray: string[] } | null;
   /** Nur Demo: Zeitraffer und „Abends“ vorspielen */
   demo: { speed: 1 | 30; bedtime: boolean } | null;
+  /** Zustand der Bauteile (nur echte Box): nfc, buttons, leds */
+  hardware: Record<string, { ok: boolean; detail: string }>;
 };
 
 export type BoxButton = 'minus' | 'play' | 'plus';

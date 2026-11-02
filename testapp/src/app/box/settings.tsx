@@ -151,12 +151,40 @@ function Settings({ pin }: { pin: string }) {
         </Card>
       </Section>
 
+      <HardwareSection />
+
       <Section title="Hilfe" footer="Was die Box zuletzt getan hat. Hilfreich, wenn etwas nicht klappt.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
           <Row first title="Log ansehen" icon="document-text" iconColor={c.textTertiary} onPress={() => router.push('/log' as Href)} />
         </Card>
       </Section>
     </>
+  );
+}
+
+const PART_NAMES: Record<string, string> = { nfc: 'NFC-Leser', buttons: 'Taster', leds: 'LED-Ring' };
+
+/** Wie die Box ihre Bauteile beim Start vorgefunden hat. Bei FEHLER steht die Meldung darunter. */
+function HardwareSection() {
+  const c = useColors();
+  const { view } = useBox();
+  const parts = Object.entries(view.hardware);
+  if (view.kind !== 'remote' || parts.length === 0) return null;
+  return (
+    <Section title="Hardware" footer="Stand beim letzten Start der Box-Software. Nach dem Beheben: „Box-Software neu starten“.">
+      <Card padded={false} style={{ paddingHorizontal: space.lg }}>
+        {parts.map(([key, part], i) => (
+          <Row
+            key={key}
+            first={i === 0}
+            title={PART_NAMES[key] ?? key}
+            subtitle={part.detail}
+            icon={part.ok ? 'checkmark-circle' : 'alert-circle'}
+            iconColor={part.ok ? c.success : c.danger}
+          />
+        ))}
+      </Card>
+    </Section>
   );
 }
 

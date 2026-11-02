@@ -49,7 +49,7 @@ type RawState = {
     bedtime_max_volume: number;
     known_tokens_only: boolean;
   };
-  box: { name: string; version: string; simulated: boolean };
+  box: { name: string; version: string; simulated: boolean; hardware?: Record<string, { ok: boolean; detail: string }> };
 };
 
 const medium = (m: RawMedium): Medium => ({
@@ -224,6 +224,7 @@ export class RemoteBox {
       notice: this.localNotice ?? r.notice,
       sim: r.box.simulated ? { tray: [...r.tokens.map((t) => t.uid), this.blankUid] } : null,
       demo: null,
+      hardware: r.box.hardware ?? {},
     };
   }
 

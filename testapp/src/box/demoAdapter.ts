@@ -89,6 +89,7 @@ export function demoView(s: BoxState): BoxView {
     notice: s.notice,
     sim: { tray: s.tray },
     demo: { speed: s.speed, bedtime: s.bedtime },
+    hardware: {},
   };
 }
 

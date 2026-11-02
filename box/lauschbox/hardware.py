@@ -268,12 +268,18 @@ async def run_leds(ring: LedRing, get_state: Callable[[], dict], fps: int = 25) 
         return
     start = time.monotonic()
     last: list | None = None
+    last_error = 0.0
+    log.info("LED-Ring läuft (%d Bilder/s)", fps)
     while True:
-        frame = led_frame(get_state(), time.monotonic() - start)
-        if frame != last:
-            try:
+        try:
+            frame = led_frame(get_state(), time.monotonic() - start)
+            if frame != last:
                 ring.show(frame)
-            except Exception as e:  # noqa: BLE001
-                log.warning("LED-Ausgabe: %s", e)
-            last = frame
+                last = frame
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 – ein Fehler darf den Ring nicht für immer dunkel lassen
+            if time.monotonic() - last_error > 30:
+                log.exception("LED-Ring: Fehler beim Zeichnen")
+                last_error = time.monotonic()
         await asyncio.sleep(1 / fps)
