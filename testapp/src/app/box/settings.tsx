@@ -229,7 +229,7 @@ function HardwareSection() {
   const c = useColors();
   const { view } = useBox();
   const parts = Object.entries(view.hardware);
-  if (view.kind !== 'remote' || parts.length === 0) return null;
+  if (parts.length === 0) return null;
   return (
     <Section title="Hardware" footer="Stand beim letzten Start der Box-Software. Nach dem Beheben: „Box-Software neu starten“.">
       <Card padded={false} style={{ paddingHorizontal: space.lg }}>

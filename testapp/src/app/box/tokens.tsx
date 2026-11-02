@@ -9,7 +9,7 @@ import { LedRing } from '@/components/LedRing';
 import { Screen } from '@/components/Screen';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Pill, Section, Txt } from '@/components/ui';
-import { formatTime } from '@/demo/catalog';
+import { formatTime } from '@/format';
 import { radius, space, useColors } from '@/theme';
 
 export default function TokensTab() {

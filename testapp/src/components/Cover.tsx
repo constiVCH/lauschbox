@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { Medium } from '@/box/types';
 
-/** Cover eines Inhalts: echtes Bild (Spotify) oder Platzhalter mit Farbe und Emoji (Demo). */
+/** Cover eines Inhalts: Bild von Spotify oder Platzhalter. */
 export function Cover({ medium, size = 56 }: { medium: Medium; size?: number }) {
   const r = size * 0.2;
   if (medium.coverUrl) {
@@ -21,18 +21,12 @@ export function Cover({ medium, size = 56 }: { medium: Medium; size?: number }) 
   }
   return (
     <View
-      style={[styles.cover, { width: size, height: size, borderRadius: r, backgroundColor: medium.color ?? '#5E7690' }]}
+      style={[styles.cover, { width: size, height: size, borderRadius: r, backgroundColor: '#5E7690' }]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
       <View style={[StyleSheet.absoluteFill, styles.sheen, { borderRadius: r }]} />
-      {medium.emoji ? (
-        <Text style={{ fontSize: size * 0.46 }} allowFontScaling={false}>
-          {medium.emoji}
-        </Text>
-      ) : (
-        <Ionicons name="musical-notes" size={size * 0.42} color="rgba(255,255,255,0.85)" />
-      )}
+      <Ionicons name="musical-notes" size={size * 0.42} color="rgba(255,255,255,0.85)" />
     </View>
   );
 }

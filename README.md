@@ -10,7 +10,7 @@ Konfiguration über eine eigene App (Expo, iOS + Android). Die Box spielt komple
 | Ordner      | Inhalt |
 |-------------|--------|
 | `box/`      | Software auf dem Pi: box-daemon `box/lauschbox/` (Python, `python -m lauschbox`) + Hardware-Testskripte (`box/spikes/`) |
-| `testapp/`  | **Die App** (Expo): echte Box, Demo-Box und Hardware-Test; läuft per Expo Go auf dem Handy ([testapp/README.md](testapp/README.md)) |
+| `testapp/`  | **Die App** (Expo): echte Box und Hardware-Test; läuft per Expo Go auf dem Handy ([testapp/README.md](testapp/README.md)) |
 | `brand/`    | Logo (SVG/PNG) und Skript, das daraus alle App-Icons erzeugt |
 | `hardware/` | Teileliste, Pinbelegung, später Schaltplan und Gehäuse (STL) |
 | `docs/`     | Konzept, API-Entwurf, Setup-Anleitungen |
@@ -28,7 +28,7 @@ Testaufbau mit dem Pi 3B+, bis der Zero da ist: [hardware/testaufbau-pi3b.md](ha
 
 ## Phasen
 
-1. **Spike Spotify** – go-librespot auf dem Pi, Wiedergabe über die lokale API starten → [docs/pi-setup.md](docs/pi-setup.md), `box/spikes/golibrespot_spike.py`
+1. **Spike Spotify** – go-librespot auf dem Pi, Wiedergabe über die lokale API starten ✓ → [docs/pi-setup.md](docs/pi-setup.md)
 2. **Hardware-Prototyp** – NFC, Taster, LEDs, Akku einzeln testen (`box/spikes/*_test.py`)
 3. **box-daemon** ✓ – Token → Wiedergabe, Taster, Lautstärke, Fortschritt, LED-Zustände, Kindermodus (`box/lauschbox/`, Tests in `box/tests/`)
 4. **API + App** – ✓ Verbinden, Token anlernen per Spotify-Link, Wiedergabe, Kindermodus; offen: Spotify-Suche, Einstellungen, Akkuanzeige

@@ -10,8 +10,8 @@ import { Cover } from '@/components/Cover';
 import { Screen } from '@/components/Screen';
 import { Slider } from '@/components/Slider';
 import { Tap } from '@/components/Tap';
-import { Button, Card, Pill, Row, Section, Segmented, SwitchRow, Txt } from '@/components/ui';
-import { formatTime } from '@/demo/catalog';
+import { Button, Card, Pill, Row, Section, Segmented, Txt } from '@/components/ui';
+import { formatTime } from '@/format';
 import { space, useColors } from '@/theme';
 
 export default function BoxTab() {
@@ -22,7 +22,7 @@ export default function BoxTab() {
       title="Box"
       subtitle={subtitle(view)}
       leading={<BackToStart />}
-      trailing={view.kind === 'remote' ? <ConnectionPill view={view} /> : undefined}
+      trailing={<ConnectionPill view={view} />}
       scrollEnabled={!dragging}
     >
       <StatusBanner view={view} />
@@ -37,7 +37,6 @@ export default function BoxTab() {
 }
 
 function subtitle(view: BoxView) {
-  if (view.kind === 'demo') return 'Demo, ohne Hardware';
   return view.sim ? `${view.name} · Simulation` : view.name;
 }
 
@@ -54,7 +53,6 @@ function ConnectionPill({ view }: { view: BoxView }) {
 /** Ehrlich sagen, wenn etwas nicht geht: Verbindung weg oder Spotify (go-librespot) nicht erreichbar. */
 function StatusBanner({ view }: { view: BoxView }) {
   const c = useColors();
-  if (view.kind !== 'remote') return null;
   let text: string | null = null;
   if (view.connection !== 'online') text = 'Verbindung zur Box unterbrochen. Die App verbindet sich neu, angezeigt wird der letzte Stand.';
   else if (!view.playerAvailable)
@@ -181,16 +179,15 @@ function WholeProgress({ now, color }: { now: NonNullable<BoxView['now']>; color
 function VolumeControl() {
   const { view: s, api } = useBox();
   const cap = s.volumeCap;
-  // Beim Ziehen lokal anzeigen, gesendet wird beim Loslassen (bei der echten Box sonst viele Anfragen)
+  // Beim Ziehen lokal anzeigen, gesendet wird beim Loslassen (sonst viele Anfragen an die Box)
   const [dragValue, setDragValue] = useState<number | null>(null);
-  const remote = s.kind === 'remote';
   return (
     <View style={{ gap: space.xs }}>
       <Slider
         label="Lautstärke"
         value={dragValue ?? s.volume}
         cap={cap < 100 ? cap : undefined}
-        onChange={(v) => (remote ? setDragValue(v) : api.setVolume(v))}
+        onChange={setDragValue}
         onEnd={(v) => {
           setDragValue(null);
           api.setVolume(v);
@@ -252,39 +249,11 @@ function SleepTimerSection() {
 function MoreSection() {
   const c = useColors();
   const { view: s, api } = useBox();
-  const demo = s.demo;
   return (
-    <Section
-      title={demo ? 'Simulation' : 'Tasten'}
-      footer={demo ? 'Nur in der Demo: Zeit schneller laufen lassen, Abend vorspielen.' : 'Gesperrt reagiert die Box nicht auf ihre Taster. Token wirken weiter.'}
-    >
+    <Section title="Tasten" footer="Gesperrt reagiert die Box nicht auf ihre Taster. Token wirken weiter.">
       <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-        {demo && api.demo && (
-          <>
-            <Row
-              first
-              title="Zeitraffer"
-              icon="speedometer"
-              iconColor={c.learn}
-              trailing={
-                <View style={{ width: 120 }}>
-                  <Segmented
-                    label="Zeitraffer"
-                    options={[
-                      { value: 1 as const, label: '1×' },
-                      { value: 30 as const, label: '30×' },
-                    ]}
-                    value={demo.speed}
-                    onChange={api.demo.setSpeed}
-                  />
-                </View>
-              }
-            />
-            <SwitchRow title="Abends (Schlafenszeit)" icon="moon" iconColor="#7B61FF" value={demo.bedtime} onChange={api.demo.setBedtime} />
-          </>
-        )}
         <Row
-          first={!demo}
+          first
           title={s.locked ? 'Tasten gesperrt' : 'Tasten frei'}
           subtitle="An der Box: + und − lange drücken"
           icon={s.locked ? 'lock-closed' : 'lock-open'}

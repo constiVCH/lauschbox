@@ -70,7 +70,7 @@ function randomUid() {
 
 /**
  * Verbindung zur echten Box. Hält den WebSocket offen (Neuverbindung 1 s … 8 s) und bietet dieselbe
- * Schnittstelle wie die Demo. Fehler bei Aktionen erscheinen als Hinweis.
+ * Schnittstelle BoxApi. Fehler bei Aktionen erscheinen als Hinweis.
  */
 export class RemoteBox {
   readonly url: string;
@@ -165,7 +165,6 @@ export class RemoteBox {
     const p = r.player;
     const loaded = r.tokens.find((t) => t.uid === r.loaded);
     return {
-      kind: 'remote',
       name: r.box.name,
       connection: this.connection,
       connectionError: this.connectionError,
@@ -225,7 +224,6 @@ export class RemoteBox {
       led: r.led,
       notice: this.localNotice ?? r.notice,
       sim: r.box.simulated ? { tray: [...r.tokens.map((t) => t.uid), this.blankUid] } : null,
-      demo: null,
       hardware: r.box.hardware ?? {},
       settings: { removeGraceS: r.settings?.remove_grace_s ?? 2, fadeInS: r.settings?.fade_in_s ?? 1 },
       removalPending: !!r.removal_pending,

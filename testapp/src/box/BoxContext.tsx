@@ -5,14 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackToStart } from '@/components/BackToStart';
 import { Button, Card, Txt } from '@/components/ui';
-import { demoBox } from '@/demo/demoBox';
 import { space, useColors } from '@/theme';
 
-import { demoApi, demoView } from './demoAdapter';
 import { RemoteBox } from './remoteBox';
 import type { BoxApi, BoxView } from './types';
 
-// ---------- Welche Box ist gewählt? ('demo' oder IP[:Port] des box-daemon) ----------
+// ---------- Welche Box ist gewählt? (IP[:Port] des box-daemon) ----------
 
 let activeHost: string | null = null;
 const hostListeners = new Set<() => void>();
@@ -56,25 +54,6 @@ type Source = {
   reconnect?: () => void;
 };
 
-function demoSource(): Source {
-  let last: ReturnType<typeof demoBox.get> | null = null;
-  let view: BoxView | null = null;
-  return {
-    subscribe: demoBox.subscribe,
-    // Gleicher Zustand → gleiches Objekt, sonst rendert useSyncExternalStore endlos
-    get: () => {
-      const s = demoBox.get();
-      if (s !== last) {
-        last = s;
-        view = demoView(s);
-      }
-      return view;
-    },
-    api: demoApi,
-    url: 'demo',
-  };
-}
-
 function remoteSource(host: string): Source {
   const remote = new RemoteBox(host);
   return {
@@ -88,7 +67,8 @@ function remoteSource(host: string): Source {
   };
 }
 
-const NO_BOX: Source = { subscribe: () => () => {}, get: () => null, api: demoApi, url: '' };
+// Ohne Box zeigt RequireBox nur „Verbinde …“; api wird dann nie aufgerufen
+const NO_BOX: Source = { subscribe: () => () => {}, get: () => null, api: {} as BoxApi, url: '' };
 
 /**
  * Hängt an der Wurzel der App, damit auch Blätter (Token bearbeiten) die Box kennen.
@@ -96,7 +76,7 @@ const NO_BOX: Source = { subscribe: () => () => {}, get: () => null, api: demoAp
  */
 export function ActiveBoxProvider({ children }: { children: ReactNode }) {
   const host = useActiveHost();
-  const source = useMemo(() => (host === 'demo' ? demoSource() : host ? remoteSource(host) : NO_BOX), [host]);
+  const source = useMemo(() => (host ? remoteSource(host) : NO_BOX), [host]);
   useEffect(() => {
     source.start?.();
     return () => source.close?.();

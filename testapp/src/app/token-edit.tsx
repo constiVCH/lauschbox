@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,6 @@ import { defaultMode, PLAY_MODES, type BoxApi, type Medium, type PlayMode } from
 import { Cover, TokenDisc } from '@/components/Cover';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Section, Segmented, Txt } from '@/components/ui';
-import { formatTime } from '@/demo/catalog';
 import { radius, space, tokenColorNames, tokenColors, type, useColors } from '@/theme';
 
 export default function TokenEditScreen() {
@@ -111,7 +110,7 @@ function TokenEdit() {
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xxl }]} keyboardShouldPersistTaps="handled">
         <View style={styles.preview}>
-          <TokenDisc size={88} color={color} emoji={medium?.emoji} coverUrl={medium?.coverUrl} />
+          <TokenDisc size={88} color={color} coverUrl={medium?.coverUrl} />
           <Txt variant="footnote" color="tertiary">
             UID {uid}
           </Txt>
@@ -161,11 +160,7 @@ function TokenEdit() {
           <Segmented label="Wiedergabe" value={mode} onChange={setModeChoice} options={PLAY_MODES.map(({ value, label }) => ({ value, label }))} />
         </Section>
 
-        {api.catalog ? (
-          <CatalogPicker catalog={api.catalog} selected={medium?.uri} onPick={pick} error={mediumError} />
-        ) : (
-          <SpotifyPicker api={api} medium={medium} onPick={pick} error={mediumError} />
-        )}
+        <SpotifyPicker api={api} medium={medium} onPick={pick} error={mediumError} />
 
         {saveError && (
           <Txt variant="footnote" color={c.danger} style={{ marginBottom: space.md, textAlign: 'center' }}>
@@ -425,73 +420,6 @@ function LinkInput({ api, hasMedium, onPick }: { api: BoxApi; hasMedium: boolean
         </Txt>
       )}
     </>
-  );
-}
-
-/** Demo: ausgedachter Katalog statt Spotify. */
-function CatalogPicker({ catalog, selected, onPick, error }: { catalog: Medium[]; selected?: string; onPick: (m: Medium) => void; error: string | null }) {
-  const c = useColors();
-  const [query, setQuery] = useState('');
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? catalog.filter((m) => m.title.toLowerCase().includes(q)) : catalog;
-  }, [query, catalog]);
-
-  return (
-    <Section title="Inhalt" footer="Demo-Katalog mit ausgedachten Titeln. Mit der echten Box fügst du hier einen Spotify-Link ein.">
-      <View style={[styles.search, { backgroundColor: c.surface }, error && { borderColor: c.danger, borderWidth: 1 }]}>
-        <Ionicons name="search" size={18} color={c.textTertiary} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Hörspiel, Hörbuch oder Playlist"
-          placeholderTextColor={c.textTertiary}
-          autoCorrect={false}
-          returnKeyType="search"
-          accessibilityLabel="Inhalt suchen"
-          style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
-        />
-      </View>
-      {error && (
-        <Txt variant="footnote" color={c.danger}>
-          {error}
-        </Txt>
-      )}
-      <Card padded={false}>
-        {results.map((m, i) => {
-          const active = m.uri === selected;
-          return (
-            <Tap
-              key={m.uri}
-              onPress={() => onPick(m)}
-              haptic="selection"
-              scaleTo={0.985}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${m.title}, ${m.kindLabel}, ${m.trackCount} Titel`}
-            >
-              <View style={[styles.result, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.fillStrong }]}>
-                <Cover medium={m} size={44} />
-                <View style={{ flex: 1 }}>
-                  <Txt variant="subhead" style={{ fontWeight: '600' }} numberOfLines={2}>
-                    {m.title}
-                  </Txt>
-                  <Txt variant="footnote" color="secondary">
-                    {m.kindLabel} · {m.trackCount} Titel · {formatTime(m.durationS ?? 0)}
-                  </Txt>
-                </View>
-                <Ionicons name={active ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={active ? c.accent : c.textTertiary} />
-              </View>
-            </Tap>
-          );
-        })}
-        {results.length === 0 && (
-          <Txt variant="callout" color="secondary" style={{ padding: space.lg, textAlign: 'center' }}>
-            Nichts gefunden für „{query}“.
-          </Txt>
-        )}
-      </Card>
-    </Section>
   );
 }
 

@@ -97,31 +97,7 @@ curl -s localhost:3678/status
 Wird in der App eingerichtet: Tab „Box“ → Spotify → „Einrichten“. Dort steht Schritt für Schritt, was zu tun ist
 (App anlegen, Client-ID und Client-Secret einfügen). Ohne sie gehen „Meine“ und Links trotzdem.
 
-Die alten Schritte unten sind nur noch für den Spike `spotify_spike.py` nötig:
-Zum Abspielen reicht go-librespot. Die Web API brauchen wir nur für die Suche beim Anlernen von Token.
-1. https://developer.spotify.com/dashboard → App anlegen, „Web API“ auswählen.
-2. Redirect URI: `http://127.0.0.1:8888/callback` (Spotify akzeptiert nur Loopback-IP, nicht `localhost`).
-3. Client ID notieren. Der eigene Account muss Premium haben.
-
-## 5. Spikes ausführen
-**a) Abspielen über go-librespot** (auf dem Pi, ohne Web API):
-```
-cd box
-sudo apt install -y python3-venv python3-gpiozero python3-lgpio
-python3 -m venv --system-site-packages .venv && . .venv/bin/activate
-pip install requests
-python spikes/golibrespot_spike.py spotify:album:<ID>
-python spikes/golibrespot_spike.py spotify:album:<ID> --position 90000   # ab 1:30 im ersten Titel
-```
-Erfolg = Hörspiel läuft aus dem Box-Lautsprecher, danach werden 10 s lang die WebSocket-Events ausgegeben.
-
-**b) Web API** (auf dem PC oder dem Pi), prüft den Login für die spätere Suche. Wenn go-librespot läuft,
-taucht „Lauschbox“ als Gerät in der Web API auf:
-```
-python spikes/spotify_spike.py --client-id <ID> --uri spotify:album:<ID>
-```
-
-## 6. Hardware-Tests (auf dem Pi)
+## 5. Hardware-Tests (auf dem Pi)
 ```
 sudo apt install -y python3-venv python3-dev i2c-tools python3-gpiozero python3-lgpio
 # gpiozero und lgpio kommen als Systempakete; die Umgebung darf sie mitbenutzen (--system-site-packages).
@@ -135,7 +111,7 @@ python spikes/leds_test.py
 python spikes/battery_test.py   # vorher pisugar-server installieren (siehe PiSugar-Doku)
 ```
 
-## 7. box-daemon (die eigentliche Box-Software)
+## 6. box-daemon (die eigentliche Box-Software)
 
 **Empfohlen: einmal das Einrichtungsskript ausführen, danach nie wieder ein Terminal.**
 ```

@@ -1,5 +1,5 @@
 /**
- * Gemeinsame Sicht auf eine Box, egal ob simuliert (Demo) oder echt (box-daemon über WLAN).
+ * Sicht der App auf die Box (box-daemon über WLAN, auch mit --fake).
  * Die Bildschirme kennen nur BoxView und BoxApi.
  */
 
@@ -13,11 +13,7 @@ export type Medium = {
   /** Künstler, Autor oder Besitzer der Playlist */
   subtitle?: string;
   coverUrl?: string | null;
-  /** Platzhalter-Cover der Demo */
-  color?: string;
-  emoji?: string;
   trackCount?: number;
-  durationS?: number;
 };
 
 export type TokenProgress = {
@@ -25,7 +21,7 @@ export type TokenProgress = {
   trackName?: string | null;
   positionS: number;
   finished: boolean;
-  /** 0..1, nur wenn die Gesamtlänge bekannt ist (Demo) */
+  /** 0..1, nur wenn die Gesamtlänge bekannt ist */
   fraction?: number;
 };
 
@@ -87,7 +83,6 @@ export type KidView = {
 };
 
 export type BoxView = {
-  kind: 'demo' | 'remote';
   name: string;
   connection: 'online' | 'connecting' | 'offline';
   connectionError?: string | null;
@@ -108,10 +103,8 @@ export type BoxView = {
   kid: KidView;
   led: { mode: LedMode; color: string; fill: number; brightness?: number };
   notice: Notice | null;
-  /** Token per App auflegen (Demo und box-daemon mit --fake) */
+  /** Token per App auflegen (box-daemon mit --fake) */
   sim: { tray: string[] } | null;
-  /** Nur Demo: Zeitraffer und „Abends“ vorspielen */
-  demo: { speed: 1 | 30; bedtime: boolean } | null;
   /** Allgemeine Einstellungen der Box */
   settings: BoxSettings;
   /** Token wurde abgenommen, die Box spielt aber noch die Nachfrist lang weiter */
@@ -190,9 +183,6 @@ export interface BoxApi {
   systemInfo(): Promise<SystemInfo>;
   systemAction(action: SystemAction, pin: string): Promise<string | null>;
   systemLog(pin: string): Promise<string>;
-  /** Demo: fester Katalog statt Spotify */
-  catalog?: Medium[];
-  demo?: { setSpeed(speed: 1 | 30): void; setBedtime(on: boolean): void };
 }
 
 export const KIND_LABELS: Record<string, string> = {

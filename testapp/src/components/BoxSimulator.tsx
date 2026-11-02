@@ -62,7 +62,6 @@ export function BoxSimulator({ onDragChange }: { onDragChange?: (dragging: boole
               key={s.placed}
               well={well}
               color={placed?.color}
-              emoji={placed?.medium.emoji}
               coverUrl={placed?.medium.coverUrl}
               blank={!placed}
               onRemove={canPlace ? api.remove : undefined}
@@ -221,7 +220,7 @@ function DraggableToken({
         accessibilityHint="Legt den Token auf die Box"
         onAccessibilityTap={drop}
       >
-        <TokenDisc size={CHIP} color={blank ? c.textTertiary : token?.color} emoji={token?.medium.emoji} coverUrl={token?.medium.coverUrl} blank={blank} />
+        <TokenDisc size={CHIP} color={blank ? c.textTertiary : token?.color} coverUrl={token?.medium.coverUrl} blank={blank} />
       </Animated.View>
     </GestureDetector>
   );
@@ -231,14 +230,12 @@ function DraggableToken({
 function PlacedToken({
   well,
   color,
-  emoji,
   coverUrl,
   blank,
   onRemove,
 }: {
   well: AnimatedRef<Animated.View>;
   color?: string;
-  emoji?: string;
   coverUrl?: string | null;
   blank: boolean;
   onRemove?: () => void;
@@ -300,7 +297,7 @@ function PlacedToken({
         accessibilityHint={movable ? 'Nimmt den Token ab' : undefined}
         onAccessibilityTap={movable ? remove : undefined}
       >
-        <TokenDisc size={CHIP + 8} color={blank ? c.textTertiary : color} emoji={emoji} coverUrl={coverUrl} blank={blank} />
+        <TokenDisc size={CHIP + 8} color={blank ? c.textTertiary : color} coverUrl={coverUrl} blank={blank} />
       </Animated.View>
     </GestureDetector>
   );

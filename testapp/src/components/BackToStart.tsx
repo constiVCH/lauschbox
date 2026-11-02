@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 
 import { Button } from './ui';
 
-/** Zurück zum Startbildschirm (Demo oder Testaufbau verlassen). */
+/** Zurück zum Startbildschirm (Box oder Testaufbau verlassen). */
 export function BackToStart() {
   return (
     <Button

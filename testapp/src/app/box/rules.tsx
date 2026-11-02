@@ -75,19 +75,12 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
 
         <Section
           title="Schlafenszeit"
-          footer={
-            s.demo
-              ? 'Neue Token starten nicht, ein laufender Titel spielt zu Ende. Zum Ausprobieren: Tab „Box“ → Simulation → Abends.'
-              : 'Neue Token starten nicht, ein laufender Titel spielt zu Ende, die LEDs werden gedimmt. Die Box nutzt ihre eigene Uhr.'
-          }
+          footer="Neue Token starten nicht, ein laufender Titel spielt zu Ende, die LEDs werden gedimmt. Die Box nutzt ihre eigene Uhr."
         >
           <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-            {!s.demo && (
-              <SwitchRow first title="Schlafenszeit" icon="moon" iconColor="#7B61FF" value={k.bedtimeEnabled} onChange={(v) => set({ bedtimeEnabled: v })} />
-            )}
-            <Row first={!!s.demo} title={`${kid.bedtimeFrom} bis ${kid.bedtimeTo}`} subtitle={s.demo ? 'In der Demo fest eingestellt' : undefined} icon="time" iconColor="#7B61FF" />
-            {!s.demo && (
-              <View style={{ gap: space.lg, paddingVertical: space.md }}>
+            <SwitchRow first title="Schlafenszeit" icon="moon" iconColor="#7B61FF" value={k.bedtimeEnabled} onChange={(v) => set({ bedtimeEnabled: v })} />
+            <Row title={`${kid.bedtimeFrom} bis ${kid.bedtimeTo}`} icon="time" iconColor="#7B61FF" />
+            <View style={{ gap: space.lg, paddingVertical: space.md }}>
                 <TimeSlider
                   title="Ab"
                   value={kid.bedtimeFrom}
@@ -104,8 +97,7 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
                   onChange={(v) => setDraft((d) => ({ ...d, bedtimeTo: v }))}
                   onEnd={(v) => set({ bedtimeTo: v })}
                 />
-              </View>
-            )}
+            </View>
             <Row
               title={s.bedtimeActive ? 'Gerade Schlafenszeit' : 'Gerade keine Schlafenszeit'}
               icon="timer"
@@ -137,8 +129,7 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
         </Section>
       </View>
 
-      {!s.demo && (
-        <Section title="Eltern-PIN" footer="Gilt für Kindermodus und Einstellungen. Ab Werk 1234.">
+      <Section title="Eltern-PIN" footer="Gilt für Kindermodus und Einstellungen. Ab Werk 1234.">
           <Card style={styles.pinRow}>
             <TextInput
               value={newPin}
@@ -153,8 +144,7 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
             />
             <Button label="Ändern" icon="key" compact disabled={newPin.length !== 4} onPress={changePin} />
           </Card>
-        </Section>
-      )}
+      </Section>
     </>
   );
 }

@@ -8,7 +8,8 @@ Die Eltern-App der Lauschbox. Drei Wege vom Startbildschirm:
   beides mit Eltern-PIN (ab Werk **1234**).
 - **Hardware testen:** NFC-Leser, Taster, LED-Ring und Lautsprecher am Pi live prüfen. Gegenstück auf dem Pi ist
   [box/spikes/hwtest_server.py](../box/spikes/hwtest_server.py), Verdrahtung in [hardware/testaufbau-pi3b.md](../hardware/testaufbau-pi3b.md).
-- **Demo-Box:** dieselbe Bedienung mit einer simulierten Box, ganz ohne Hardware (Demo-PIN **1234**).
+- **Ohne Box ausprobieren:** am PC `cd box && python -m lauschbox --fake`, dann in der App die IP des PCs eintragen.
+  Token legst du dann in der App auf.
 
 Gestaltet nach dem Skill `apple-design` (`.agents/skills/apple-design`): Federn statt fester Animationsdauer,
 Rückmeldung beim Aufsetzen des Fingers, Gesten folgen 1:1 und nehmen den Schwung mit, Material statt harter Kanten,
@@ -29,7 +30,7 @@ npx expo start
 
 ## Mit der Box verbinden
 
-1. Auf dem Pi läuft `python -m lauschbox` (Einrichtung: [docs/pi-setup.md](../docs/pi-setup.md), Schritt 7).
+1. Auf dem Pi läuft `python -m lauschbox` (Einrichtung: [docs/pi-setup.md](../docs/pi-setup.md), Schritt 6).
    Ohne Pi geht es am PC mit `python -m lauschbox --fake`: Dann legt man Token im Tab „Box“ per Ziehen auf.
 2. IP des Pi (oder PCs) eintragen → „Mit Box verbinden“. Port 8080 ist voreingestellt, sonst `IP:Port`.
 
@@ -52,13 +53,12 @@ npx expo-doctor
 ```
 src/
   app/                 Bildschirme (Expo Router)
-    index.tsx          Start: Meine Box, Hardware testen, Demo
-    box/               Tabs Box, Token, Kindermodus (für Demo und echte Box gleich)
+    index.tsx          Start: Meine Box, Hardware testen
+    box/               Tabs Box, Token, Kindermodus
     token-edit.tsx     Token anlegen/bearbeiten (Blatt)
     hardware.tsx       Hardware-Test live
-  box/                 Gemeinsame Sicht auf eine Box (types.ts), Demo-Adapter, Client für den box-daemon, Context
+  box/                 Gemeinsame Sicht auf eine Box (types.ts), Client für den box-daemon, Context
   components/          Tap (Druck-Feedback), Slider (1:1, federnder Anschlag), LedRing, BoxSimulator, TabBar …
-  demo/                Simulierte Box mit den Regeln aus docs/konzept.md
   hw/hardware.ts       Client für den Hardware-Testserver (REST + WebSocket)
   theme.ts             Farben, Schrift, Abstände, Federn
 ```

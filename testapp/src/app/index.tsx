@@ -7,7 +7,6 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setActiveBox } from '@/box/BoxContext';
-import { Tap } from '@/components/Tap';
 import { Button, Card, Txt } from '@/components/ui';
 import { load, save } from '@/storage';
 import { radius, space, type, useColors } from '@/theme';
@@ -35,10 +34,6 @@ export default function Start() {
     save(HOST_KEY, host.trim());
     router.push({ pathname: '/hardware', params: { host: host.trim() } });
   };
-  const openDemo = () => {
-    setActiveBox('demo');
-    router.push('/box' as Href);
-  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -52,7 +47,7 @@ export default function Start() {
             Lauschbox
           </Txt>
           <Txt variant="callout" color="secondary" style={{ textAlign: 'center', maxWidth: 320 }}>
-            Mit deiner Box verbinden oder die Bedienung erst mit einer simulierten Box ausprobieren.
+            Mit deiner Box im WLAN verbinden.
           </Txt>
         </View>
 
@@ -101,21 +96,6 @@ export default function Start() {
           />
         </Card>
 
-        <Tap onPress={openDemo} scaleTo={0.98} accessibilityRole="button" accessibilityLabel="Demo-Box öffnen">
-          <Card style={styles.choice}>
-            <View style={[styles.choiceIcon, { backgroundColor: c.fillStrong }]}>
-              <Ionicons name="sparkles" size={22} color={c.text} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt variant="headline">Demo-Box</Txt>
-              <Txt variant="footnote" color="secondary">
-                Token auflegen, Kindermodus, Anlernen. Läuft ohne Hardware.
-              </Txt>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={c.textTertiary} />
-          </Card>
-        </Tap>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -125,7 +105,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: space.lg, gap: space.lg, width: '100%', maxWidth: 560, alignSelf: 'center' },
   hero: { alignItems: 'center', gap: space.sm, marginBottom: space.lg },
   logo: { width: 112, height: 112, marginBottom: space.sm },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   choiceHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   choiceIcon: { width: 44, height: 44, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   input: { minHeight: 48, borderRadius: radius.sm + 2, borderCurve: 'continuous', paddingHorizontal: space.md },

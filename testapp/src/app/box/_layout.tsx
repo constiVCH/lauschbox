@@ -7,7 +7,7 @@ import { NoticeToast } from '@/components/NoticeToast';
 import { TabBar } from '@/components/TabBar';
 import { useColors } from '@/theme';
 
-/** Tabs für eine Box: Demo oder echte Box, je nachdem, was auf dem Startbildschirm gewählt wurde. */
+/** Tabs für die verbundene Box. */
 export default function BoxLayout() {
   return (
     <RequireBox>

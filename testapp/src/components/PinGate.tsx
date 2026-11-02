@@ -18,7 +18,7 @@ const listeners = new Set<() => void>();
 /** [PIN oder null, setzen/sperren]. Gilt für die verbundene Box, bis die App beendet wird. */
 export function useParentPin(): [string | null, (pin: string | null) => void] {
   const { view } = useBox();
-  const key = `${view.kind}:${view.name}`;
+  const key = view.name;
   const pin = useSyncExternalStore(
     (fn) => {
       listeners.add(fn);
@@ -37,7 +37,7 @@ export function useParentPin(): [string | null, (pin: string | null) => void] {
 
 export function PinGate({ onUnlock }: { onUnlock: (pin: string) => void }) {
   const c = useColors();
-  const { view, api } = useBox();
+  const { api } = useBox();
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -98,7 +98,7 @@ export function PinGate({ onUnlock }: { onUnlock: (pin: string) => void }) {
           <ActivityIndicator color={c.textSecondary} />
         ) : (
           <Txt variant="footnote" color={error ? c.danger : 'tertiary'} accessibilityLiveRegion="polite" style={{ textAlign: 'center' }}>
-            {error ?? (view.kind === 'demo' ? 'Demo-PIN: 1234' : 'Ab Werk 1234. Bitte bald ändern.')}
+            {error ?? 'Ab Werk 1234. Im Kindermodus änderbar.'}
           </Txt>
         )}
       </View>

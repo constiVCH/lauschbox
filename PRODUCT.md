@@ -56,7 +56,7 @@ nach Anleitung nach und richten die App selbst ein.
   am echten Pi laufen Wiedergabe, NFC (über UART), Taster und LEDs. Es fehlen noch: BLE-Einrichtung, Akku-Anbindung,
   lokale Medien.
 - Haupt-App seit 2026-11-01: Expo-App in `testapp/` (die erste Flutter-App wurde am 2026-11-02 entfernt). Verbindet sich mit dem box-daemon
-  (Token anlernen per Spotify-Link, Wiedergabe, Sleep-Timer, Kindermodus mit PIN), dazu Demo-Box und Hardware-Test.
+  (Token anlernen per Spotify-Link, Wiedergabe, Sleep-Timer, Kindermodus mit PIN), dazu Hardware-Test (die Demo-Box wurde am 2026-11-02 entfernt; ohne Box: `python -m lauschbox --fake`).
   Gestaltung nach dem Skill `apple-design` (Federn, 1:1-Gesten, Material, reduzierte Bewegung). Läuft per Expo Go
   auf dem Handy, weil auf dem Entwicklungs-PC weder JDK noch Visual Studio installiert sind.
 - Quellen: Spotify und lokale Audiodateien auf der Box (DRM-frei, per App hochgeladen; funktionieren offline).
@@ -75,8 +75,8 @@ nach Anleitung nach und richten die App selbst ein.
 
 ## Evidence on Hand
 
-Keine echten Nutzer, Testimonials, Fotos der Box oder Cover. Der Demo-Katalog (`testapp/src/demo/catalog.ts`)
-ist ausgedacht und darf nicht als echter Inhalt dargestellt werden. Spotify-Inhalte und -Marken dürfen nur
+Keine echten Nutzer, Testimonials, Fotos der Box oder Cover. Die Simulation (`--fake`) zeigt
+ausgedachte Titel, die nicht als echter Inhalt dargestellt werden dürfen. Spotify-Inhalte und -Marken dürfen nur
 im Rahmen der Spotify-Richtlinien gezeigt werden.
 
 ## Product Principles

@@ -1,6 +1,6 @@
 """Regeln der Box: Token → Wiedergabe, Taster, Kindermodus, Sleep-Timer, Lernmodus, LED-Zustand.
 
-Entspricht der simulierten Box der Test-App (testapp/src/demo/demoBox.ts), nur mit echtem Player und echter Uhrzeit.
+Ohne Hardware am PC: python -m lauschbox --fake (FakePlayer, Token per App auflegen).
 Die Engine kennt keine Hardware: NFC, Taster und API rufen ihre Methoden auf, LEDs lesen led_state().
 """
 from __future__ import annotations
