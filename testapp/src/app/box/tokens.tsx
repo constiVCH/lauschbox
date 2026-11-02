@@ -108,7 +108,7 @@ function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; 
               <View style={[styles.barFill, { width: `${Math.round(p.fraction * 100)}%`, backgroundColor: token.color }]} />
             </View>
           )}
-          {token.shuffle ? (
+          {token.mode === 'zufall' ? (
             <Txt variant="footnote" color="tertiary" numberOfLines={1}>
               Zufällige Reihenfolge
             </Txt>

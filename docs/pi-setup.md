@@ -136,7 +136,18 @@ python spikes/battery_test.py   # vorher pisugar-server installieren (siehe PiSu
 ```
 
 ## 7. box-daemon (die eigentliche Box-Software)
-Voraussetzung: Die Hardware-Tests aus Schritt 6 laufen, go-librespot ist angemeldet (Schritt 3).
+
+**Empfohlen: einmal das Einrichtungsskript ausführen, danach nie wieder ein Terminal.**
+```
+bash ~/lauschbox/box/install.sh
+```
+Es installiert die Pakete, legt die Python-Umgebung an, installiert go-librespot (falls es fehlt), richtet beide
+Programme als Dienste ein (starten beim Einschalten von selbst) und erlaubt der Box, genau diese Dienste neu zu starten
+sowie den Pi neu zu starten und auszuschalten (`/etc/sudoers.d/lauschbox`). Danach geht alles in der App unter
+„Einstellungen“: Spotify neu starten, anderes Konto anmelden (Code für spotify.com/pair erscheint dort), Update
+installieren, Box neu starten, ausschalten, Log ansehen. Das Skript kann gefahrlos erneut laufen.
+
+Von Hand (nur falls nötig):
 Hardware-Testserver und box-daemon nutzen beide Port 8080, also immer nur einen von beiden starten.
 
 ```

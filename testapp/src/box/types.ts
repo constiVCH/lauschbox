@@ -29,14 +29,33 @@ export type TokenProgress = {
   fraction?: number;
 };
 
+/** hoerspiel: alle Titel als ein Ganzes · titel: der Reihe nach, Fortschritt pro Titel · zufall: gemischt */
+export type PlayMode = 'hoerspiel' | 'titel' | 'zufall';
+
+export const PLAY_MODES: { value: PlayMode; label: string; hint: string }[] = [
+  {
+    value: 'hoerspiel',
+    label: 'Hörspiel',
+    hint: 'Alle Kapitel sind ein Ganzes: Der Ring zeigt den Fortschritt im ganzen Hörspiel, es geht beim nächsten Auflegen an derselben Stelle weiter.',
+  },
+  {
+    value: 'titel',
+    label: 'Einzelne Titel',
+    hint: 'Der Reihe nach, aber jeder Titel zählt für sich: Der Ring zeigt den Fortschritt im aktuellen Titel.',
+  },
+  { value: 'zufall', label: 'Zufällig', hint: 'Jedes Auflegen startet gemischt bei einem zufälligen Titel. Gut für Musik.' },
+];
+
+/** Vorschlag je nach Inhalt: Hörspiele kommen bei Spotify als Album oder Hörbuch, Musik eher als Playlist. */
+export const defaultMode = (kind: string): PlayMode => (kind === 'album' || kind === 'audiobook' ? 'hoerspiel' : 'titel');
+
 export type Token = {
   uid: string;
   name: string;
   color: string;
   medium: Medium;
   progress: TokenProgress;
-  /** Zufällige Reihenfolge (Musik); sonst der Reihe nach mit Weiterhören */
-  shuffle: boolean;
+  mode: PlayMode;
 };
 
 export type NowPlaying = {
@@ -97,6 +116,19 @@ export type BoxView = {
 
 export type BoxButton = 'minus' | 'play' | 'plus';
 
+export type SystemAction = 'restart-spotify' | 'restart-box' | 'reboot' | 'poweroff' | 'spotify-logout' | 'update';
+
+export type SystemInfo = {
+  /** Laufen go-librespot und die Box-Software als Dienste (install.sh ausgeführt)? */
+  managed: boolean;
+  host: string;
+  version: string;
+  commit: string | null;
+  librespot: string | null;
+  uptimeS: number | null;
+  simulated: boolean;
+};
+
 /** Spotify-Anmeldung der Box */
 export type SpotifyAccount = {
   available: boolean;
@@ -121,7 +153,7 @@ export interface BoxApi {
   setSleep(sleep: { kind: 'off' } | { kind: 'minutes'; minutes: number } | { kind: 'episode' }): void;
   startLearn(): void;
   cancelLearn(): void;
-  saveToken(token: { uid: string; name: string; color: string; medium: Medium; shuffle: boolean }): Promise<void>;
+  saveToken(token: { uid: string; name: string; color: string; medium: Medium; mode: PlayMode }): Promise<void>;
   deleteToken(uid: string): Promise<void>;
   dismissNotice(id: number): void;
   verifyPin(pin: string): Promise<boolean>;
@@ -139,6 +171,10 @@ export interface BoxApi {
   spotifyAccount?(): Promise<SpotifyAccount>;
   /** Echte Box: eigene Spotify-App für die Suche hinterlegen (null = entfernen) */
   setSpotifyApp?(app: { clientId: string; clientSecret: string } | null): Promise<void>;
+  /** Box verwalten (statt Terminal) */
+  systemInfo(): Promise<SystemInfo>;
+  systemAction(action: SystemAction, pin: string): Promise<string | null>;
+  systemLog(pin: string): Promise<string>;
   /** Demo: fester Katalog statt Spotify */
   catalog?: Medium[];
   demo?: { setSpeed(speed: 1 | 30): void; setBedtime(on: boolean): void };

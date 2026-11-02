@@ -56,8 +56,18 @@
 - Der LED-Ring und die App zeigen den Fortschritt im ganzen Inhalt („Kapitel 3 von 12, insgesamt 34 %“). Die Titelliste
   holt die Box einmal von go-librespot (`/context/tracks`, braucht `metadata.enabled`) oder über die Web API und merkt
   sie sich (Playlists einen Tag lang).
-- Pro Token einstellbar: **Zufällige Reihenfolge** (für Musik). Dann startet jedes Auflegen gemischt bei einem
-  zufälligen Titel, ohne Weiterhören; der Ring zeigt den Fortschritt im aktuellen Titel.
+- Pro Token einstellbar, die **Wiedergabe-Art**:
+  - **Hörspiel** (Vorschlag für Alben und Hörbücher): alle Titel als ein Ganzes, Gesamtfortschritt am Ring und in der App,
+    fertig erst nach dem letzten Titel.
+  - **Einzelne Titel** (Vorschlag für Playlists): der Reihe nach mit Weiterhören, Ring und Fortschritt pro Titel.
+  - **Zufällig**: jedes Auflegen gemischt ab einem zufälligen Titel, ohne Weiterhören.
+
+**Verwalten ohne Terminal**
+Nach `box/install.sh` laufen go-librespot und die Box-Software als systemd-Dienste. Die Box darf über eine enge
+sudoers-Regel genau diese Befehle ausführen: go-librespot neu starten/stoppen/starten, sich selbst neu starten, Pi neu
+starten, ausschalten. Die App (Tab „Einstellungen“, Eltern-PIN) bietet dafür Knöpfe, dazu „Anderes Konto anmelden“
+(Spotify-Anmeldung zur Seite legen, neuer Code für spotify.com/pair), „Update installieren“ (git pull, Pakete,
+Neustart) und das Log (journalctl beider Dienste).
 
 **Spotify-Login**
 Nur ein Login, auf der Box:
@@ -202,7 +212,7 @@ Umgesetzt im box-daemon ([box/lauschbox/api.py](../box/lauschbox/api.py)), Port 
 GET    /api/status                 kompletter Zustand (Player, Token, Lautstärke, Regeln, LED, Hinweis, Hardware)
 WS     /api/events                 {"type": "state", "data": <wie /api/status>} bei jeder Änderung
 GET    /api/tokens                 Liste
-PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, shuffle, medium: {uri, title, kind, cover_url}}
+PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, mode: hoerspiel|titel|zufall, medium: {uri, title, kind, cover_url}}
 DELETE /api/tokens/{uid}
 POST   /api/learn                  {active: true|false}
 POST   /api/spotify/resolve        {link} → {uri, title, kind, cover_url} (Teilen-Link, Kurzlink oder spotify:-URI)
@@ -222,6 +232,9 @@ POST   /api/notice/{id}/dismiss
 PUT    /api/settings               Teiländerung der Einstellungen
 POST   /api/kidmode/verify         {pin} → {ok}
 PUT    /api/kidmode                Teiländerung, Header X-Parent-Pin
+GET    /api/system/info            {managed, host, version, commit, librespot, uptime_s}
+GET    /api/system/log             letzte Zeilen beider Dienste (Header X-Parent-Pin)
+POST   /api/system/{restart-spotify|restart-box|reboot|poweroff|spotify-logout|update}   (Header X-Parent-Pin)
 POST   /api/sim/token              {uid|null} Token simulieren (nur mit --fake)
 ```
 

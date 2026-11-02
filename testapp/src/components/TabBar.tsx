@@ -13,6 +13,7 @@ export const tabIcons: Record<string, IconName> = {
   index: 'radio-button-on',
   tokens: 'albums',
   rules: 'shield-checkmark',
+  settings: 'settings',
 };
 
 /**

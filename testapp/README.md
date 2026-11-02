@@ -2,8 +2,10 @@
 
 Die Eltern-App der Lauschbox. Drei Wege vom Startbildschirm:
 
-- **Meine Box:** Verbindung zum box-daemon ([box/lauschbox/](../box/lauschbox/)) im WLAN: Token anlernen (per Spotify-Link),
-  Wiedergabe steuern, Sleep-Timer, Tastensperre, Kindermodus mit Eltern-PIN (ab Werk **1234**).
+- **Meine Box:** Verbindung zum box-daemon ([box/lauschbox/](../box/lauschbox/)) im WLAN: Token anlernen (Spotify-Suche,
+  eigene Playlists oder Link; Wiedergabe-Art Hörspiel, einzelne Titel oder zufällig), Wiedergabe steuern, Sleep-Timer,
+  Tastensperre, Kindermodus und Einstellungen (Spotify neu starten, Konto wechseln, Update, Neustart, Ausschalten, Log),
+  beides mit Eltern-PIN (ab Werk **1234**).
 - **Hardware testen:** NFC-Leser, Taster, LED-Ring und Lautsprecher am Pi live prüfen. Gegenstück auf dem Pi ist
   [box/spikes/hwtest_server.py](../box/spikes/hwtest_server.py), Verdrahtung in [hardware/testaufbau-pi3b.md](../hardware/testaufbau-pi3b.md).
 - **Demo-Box:** dieselbe Bedienung mit einer simulierten Box, ganz ohne Hardware (Demo-PIN **1234**).

@@ -7,10 +7,10 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RequireBox, useBox } from '@/box/BoxContext';
-import type { BoxApi, Medium } from '@/box/types';
+import { defaultMode, PLAY_MODES, type BoxApi, type Medium, type PlayMode } from '@/box/types';
 import { Cover, TokenDisc } from '@/components/Cover';
 import { Tap } from '@/components/Tap';
-import { Button, Card, Section, Segmented, SwitchRow, Txt } from '@/components/ui';
+import { Button, Card, Section, Segmented, Txt } from '@/components/ui';
 import { formatTime } from '@/demo/catalog';
 import { radius, space, tokenColorNames, tokenColors, type, useColors } from '@/theme';
 
@@ -34,7 +34,9 @@ function TokenEdit() {
   const [name, setName] = useState(existing?.name ?? '');
   const [color, setColor] = useState(existing?.color ?? tokenColors[(view.tokens.length * 3) % tokenColors.length]);
   const [medium, setMedium] = useState<Medium | null>(existing?.medium ?? null);
-  const [shuffle, setShuffle] = useState(existing?.shuffle ?? false);
+  // Wiedergabe-Art: Vorschlag je nach Inhalt, bis man selbst etwas wählt
+  const [modeChoice, setModeChoice] = useState<PlayMode | null>(existing?.mode ?? null);
+  const mode: PlayMode = modeChoice ?? defaultMode(medium?.kind ?? 'album');
   const [triedSave, setTriedSave] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ function TokenEdit() {
     setSaving(true);
     setSaveError(null);
     try {
-      await api.saveToken({ uid, name: name.trim(), color, medium, shuffle });
+      await api.saveToken({ uid, name: name.trim(), color, medium, mode });
       saved.current = true;
       router.back();
     } catch (e) {
@@ -155,17 +157,8 @@ function TokenEdit() {
           </View>
         </Section>
 
-        <Section
-          title="Wiedergabe"
-          footer={
-            shuffle
-              ? 'Jedes Auflegen startet gemischt bei einem zufälligen Titel. Gut für Musik.'
-              : 'Der Reihe nach, beim nächsten Auflegen geht es an derselben Stelle weiter. Richtig für Hörspiele und Hörbücher.'
-          }
-        >
-          <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-            <SwitchRow first title="Zufällige Reihenfolge" icon="shuffle" iconColor="#C263E8" value={shuffle} onChange={setShuffle} />
-          </Card>
+        <Section title="Wiedergabe" footer={PLAY_MODES.find((m) => m.value === mode)?.hint}>
+          <Segmented label="Wiedergabe" value={mode} onChange={setModeChoice} options={PLAY_MODES.map(({ value, label }) => ({ value, label }))} />
         </Section>
 
         {api.catalog ? (

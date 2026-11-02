@@ -14,6 +14,7 @@ from pathlib import Path
 from aiohttp import web
 
 from .api import build_app
+from .system import MemoryLog
 from .engine import Engine
 from .player import FakePlayer, SpotifyPlayer
 from .store import Store
@@ -34,6 +35,9 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+    memory_log = MemoryLog()
+    logging.getLogger().addHandler(memory_log)
+    args.memory_log = memory_log
     data_dir = args.data_dir or (Path("data") if args.fake else Path.home() / ".local/share/lauschbox")
     web.run_app(run(args, data_dir), host="0.0.0.0", port=args.port, print=lambda *_: None)
 
@@ -63,7 +67,7 @@ async def run(args, data_dir: Path) -> web.Application:
             log.info("%-8s %s  %s", part.name, "OK    " if part.ok else "FEHLER", part.detail)
         hardware = {"nfc": nfc, "buttons": buttons, "leds": ring}
 
-    app = build_app(engine, simulate=args.fake, hardware=hardware)
+    app = build_app(engine, simulate=args.fake, hardware=hardware, memory_log=args.memory_log)
     extras: dict = {}
 
     async def startup(app: web.Application) -> None:

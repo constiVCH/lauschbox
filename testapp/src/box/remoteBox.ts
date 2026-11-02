@@ -1,6 +1,6 @@
 import { baseUrl } from '@/hw/hardware';
 
-import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice, type SpotifyAccount } from './types';
+import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice, type PlayMode, type SpotifyAccount } from './types';
 
 /** Zustand, wie ihn der box-daemon schickt (box/lauschbox/engine.py, snapshot()). */
 type RawMedium = { uri: string; title: string; kind: string; cover_url: string | null; subtitle?: string; track_count?: number | null };
@@ -37,7 +37,7 @@ type RawState = {
     color: string;
     medium: RawMedium;
     progress: { track_number: number | null; track_name: string | null; position_ms: number; finished: boolean; fraction: number | null };
-    shuffle: boolean;
+    mode: PlayMode;
   }[];
   kid: {
     enabled: boolean;
@@ -179,7 +179,7 @@ export class RemoteBox {
           finished: t.progress.finished,
           fraction: t.progress.fraction ?? undefined,
         },
-        shuffle: t.shuffle,
+        mode: t.mode,
       })),
       placed: r.placed,
       loadedUid: r.loaded,
@@ -271,11 +271,11 @@ export class RemoteBox {
     setSleep: (s) => this.fire('POST', '/api/sleep', s.kind === 'minutes' ? { kind: 'minutes', minutes: s.minutes } : { kind: s.kind }),
     startLearn: () => this.fire('POST', '/api/learn', { active: true }),
     cancelLearn: () => this.fire('POST', '/api/learn', { active: false }),
-    saveToken: async ({ uid, name, color, medium: m, shuffle }) => {
+    saveToken: async ({ uid, name, color, medium: m, mode }) => {
       await this.call('PUT', `/api/tokens/${encodeURIComponent(uid)}`, {
         name,
         color,
-        shuffle,
+        mode,
         medium: { uri: m.uri, title: m.title, kind: m.kind, cover_url: m.coverUrl ?? null },
       });
     },
@@ -323,6 +323,21 @@ export class RemoteBox {
       }>('GET', '/api/spotify/account');
       return { available: a.available, username: a.username, displayName: a.display_name, pair: a.pair, search: a.search, clientId: a.client_id };
     },
+    systemInfo: async () => {
+      const i = await this.call<{
+        managed: boolean;
+        host: string;
+        version: string;
+        commit: string | null;
+        librespot: string | null;
+        uptime_s: number | null;
+        simulated: boolean;
+      }>('GET', '/api/system/info');
+      return { managed: i.managed, host: i.host, version: i.version, commit: i.commit, librespot: i.librespot, uptimeS: i.uptime_s, simulated: i.simulated };
+    },
+    systemAction: async (action, pin) =>
+      (await this.call<{ output?: string | null }>('POST', `/api/system/${action}`, {}, { 'X-Parent-Pin': pin })).output ?? null,
+    systemLog: async (pin) => (await this.call<{ log: string }>('GET', '/api/system/log', undefined, { 'X-Parent-Pin': pin })).log,
     setSpotifyApp: async (app) => {
       if (app) await this.call('PUT', '/api/spotify/app', { client_id: app.clientId, client_secret: app.clientSecret });
       else await this.call('DELETE', '/api/spotify/app');

@@ -14,7 +14,6 @@ import { radius, space, type, useColors } from '@/theme';
 
 const DASHBOARD = 'https://developer.spotify.com/dashboard';
 const REDIRECT = 'http://127.0.0.1:8888/callback';
-const MOVE_CMD = 'mv ~/.config/go-librespot/state.json ~/.config/go-librespot/state.json.alt\ngo-librespot';
 
 export default function SpotifySetupScreen() {
   return (
@@ -117,24 +116,12 @@ function SpotifySetup() {
           <Button label={busy ? 'Prüfe bei Spotify …' : 'Prüfen und speichern'} onPress={save} disabled={busy || !clientId.trim() || !secret.trim()} />
         </Section>
 
-        <Section title="Anderes Spotify-Konto" footer="Deine Token bleiben erhalten. Private Playlists des alten Kontos kann das neue Konto aber eventuell nicht abspielen.">
-          <Card style={{ gap: space.md }}>
-            <Txt variant="body">
-              Angemeldet: {account?.displayName ?? account?.username ?? 'niemand'}. So meldest du die Box mit einem anderen Konto an (auf dem Pi, im Terminal von go-librespot):
-            </Txt>
-            <Step n={1} text="go-librespot mit Strg+C beenden." />
-            <Step n={2} text="Alte Anmeldung zur Seite legen und neu starten:">
-              <Txt variant="mono" selectable>
-                {MOVE_CMD}
-              </Txt>
-            </Step>
-            <Step
-              n={3}
-              text="Den neuen Code auf spotify.com/pair eingeben, und zwar im Browser, in dem das gewünschte Konto angemeldet ist (am einfachsten in einem privaten Fenster). Der Code erscheint dann auch im Tab „Box“ unter Spotify."
-            />
-            <Txt variant="footnote" color="secondary">
-              Kinderprofile: Ein betreutes Konto im Family-Abo kann funktionieren, einfach ausprobieren. Konten der App „Spotify Kids“ sind für Geräte wie die
-              Box nicht gedacht. Alternative: ein eigenes Family-Mitglied nur für die Box.
+        <Section title="Anderes Spotify-Konto">
+          <Card style={{ gap: space.sm }}>
+            <Txt variant="body">Angemeldet: {account?.displayName ?? account?.username ?? 'niemand'}.</Txt>
+            <Txt variant="callout" color="secondary">
+              Zum Wechseln: Tab „Einstellungen“ → „Anderes Konto anmelden“. Danach erscheint dort der Code für spotify.com/pair.
+              Deine Token bleiben erhalten; private Playlists des alten Kontos kann das neue Konto aber eventuell nicht abspielen.
             </Txt>
           </Card>
         </Section>

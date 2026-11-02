@@ -32,6 +32,7 @@ function BoxTabs() {
         <Tabs.Screen name="index" options={{ title: 'Box' }} />
         <Tabs.Screen name="tokens" options={{ title: 'Token' }} />
         <Tabs.Screen name="rules" options={{ title: 'Kindermodus' }} />
+        <Tabs.Screen name="settings" options={{ title: 'Einstellungen' }} />
       </Tabs>
       <NoticeToast />
     </View>

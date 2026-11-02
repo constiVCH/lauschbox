@@ -2,10 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { router, type Href } from 'expo-router';
-
 import { useBox } from '@/box/BoxContext';
-import { useSpotifyAccount } from '@/box/useSpotifyAccount';
 import type { BoxView } from '@/box/types';
 import { BackToStart } from '@/components/BackToStart';
 import { BoxSimulator } from '@/components/BoxSimulator';
@@ -35,7 +32,6 @@ export default function BoxTab() {
       <NowPlaying />
       <SleepTimerSection />
       <MoreSection />
-      {view.kind === 'remote' && <SpotifySection />}
     </Screen>
   );
 }
@@ -249,40 +245,6 @@ function SleepTimerSection() {
   return (
     <Section title="Sleep-Timer" footer={footer}>
       <Segmented label="Sleep-Timer" options={options} value={value} onChange={set} />
-    </Section>
-  );
-}
-
-/** Wer ist auf der Box bei Spotify angemeldet, und ist die Suche eingerichtet? */
-function SpotifySection() {
-  const c = useColors();
-  const { account, error } = useSpotifyAccount();
-  const openSetup = () => router.push('/spotify-setup' as Href);
-
-  let who: { title: string; subtitle?: string };
-  if (error) who = { title: 'Unbekannt', subtitle: error };
-  else if (!account) who = { title: 'Wird geladen …' };
-  else if (!account.available) who = { title: 'go-librespot läuft nicht', subtitle: 'Ohne go-librespot kein Spotify auf der Box.' };
-  else if (account.username)
-    who = {
-      title: account.displayName ?? account.username,
-      subtitle: account.displayName ? `Benutzername ${account.username}` : 'Anzeigename erscheint, sobald die Suche eingerichtet ist',
-    };
-  else who = { title: 'Niemand angemeldet', subtitle: account.pair ? `Code ${account.pair.code} auf spotify.com/pair eingeben` : undefined };
-
-  const searchReady = account?.search === 'app' || account?.search === 'simulated';
-  return (
-    <Section title="Spotify" footer="Anderes Konto oder Kinderprofil: unter „Einrichten“ steht, wie du die Box neu anmeldest.">
-      <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-        <Row first title={who.title} subtitle={who.subtitle} icon="person" iconColor={c.success} />
-        <Row
-          title="Suche"
-          subtitle={searchReady ? 'Eingerichtet' : 'Nicht eingerichtet. Ohne eigene Spotify-App bremst Spotify die Suche.'}
-          icon="search"
-          iconColor={searchReady ? c.success : c.warning}
-          trailing={<Button label={searchReady ? 'Ändern' : 'Einrichten'} kind="secondary" compact onPress={openSetup} />}
-        />
-      </Card>
     </Section>
   );
 }

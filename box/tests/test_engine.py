@@ -297,7 +297,7 @@ def test_kapitelwechsel_ist_kein_ende(box):
 def test_zufall_mischt_und_normaler_token_schaltet_zufall_ab(box):
     async def go():
         engine, player = await box()
-        engine.save_token("mix", "Party", "#FF5FA2", PLAYLIST, shuffle=True)
+        engine.save_token("mix", "Party", "#FF5FA2", PLAYLIST, mode="zufall")
         await engine.token_placed("mix")
         assert player.shuffle is True
         await engine.token_placed("tok1")  # Hörspiel danach: wieder der Reihe nach
@@ -358,3 +358,40 @@ def test_ende_ohne_titelliste_erst_nach_kurzer_wartezeit(box, monkeypatch):
         await engine.close()
 
     run(go())
+
+
+def test_einzelne_titel_zeigen_nur_den_titel(box):
+    async def go():
+        engine, player = await box()
+        engine.save_token("tok1", "Funkel", "#FF8A3D", ALBUM, mode="titel")
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.05)
+        await player.next()
+        await player.next()
+        await player.seek(FakePlayer.TRACK_MS // 2)  # Kapitel 3, Mitte
+        assert abs(engine.led_state()["fill"] - 0.5) < 0.02  # Titel, nicht das Ganze
+        snap = engine.snapshot()
+        assert snap["player"]["track_index"] == 2 and snap["player"]["context_duration_ms"] is None
+        assert next(t for t in snap["tokens"] if t["uid"] == "tok1")["progress"]["fraction"] is None
+        await engine.close()
+
+    run(go())
+
+
+def test_alte_token_bekommen_passende_wiedergabe_art(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "alt.db"
+    con = sqlite3.connect(db)
+    con.executescript(
+        """CREATE TABLE tokens (uid TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, uri TEXT NOT NULL,
+               title TEXT NOT NULL, kind TEXT NOT NULL, cover_url TEXT, created REAL NOT NULL, shuffle INTEGER NOT NULL DEFAULT 0);
+           INSERT INTO tokens VALUES ('a', 'Hörspiel', '#fff', 'spotify:album:x', 'A', 'album', NULL, 1, 0);
+           INSERT INTO tokens VALUES ('b', 'Musik', '#fff', 'spotify:playlist:y', 'B', 'playlist', NULL, 2, 0);
+           INSERT INTO tokens VALUES ('c', 'Party', '#fff', 'spotify:playlist:z', 'C', 'playlist', NULL, 3, 1);"""
+    )
+    con.commit()
+    con.close()
+    store = Store(db)
+    assert [store.token(u).mode for u in "abc"] == ["hoerspiel", "titel", "zufall"]
+    store.close()

@@ -353,9 +353,9 @@ class Engine:
         self.learned_uid = None
         self._changed()
 
-    def save_token(self, uid: str, name: str, color: str, medium: Medium, shuffle: bool = False) -> Token:
+    def save_token(self, uid: str, name: str, color: str, medium: Medium, mode: str | None = None) -> Token:
         is_new = self.store.token(uid) is None
-        token = self.store.save_token(uid, name.strip()[:40], color, medium, shuffle)
+        token = self.store.save_token(uid, name.strip()[:40], color, medium, mode)
         asyncio.ensure_future(self._load_tracks(medium.uri))
         if self._loaded == uid and token.medium.uri != self.player.status.context_uri:
             self._loaded = None
@@ -559,7 +559,7 @@ class Engine:
             token = self.token()
             s = self.player.status
             if token and self._loaded == token.uid and s.track_uri:
-                ctx = None if token.shuffle else self._context_progress(token.medium.uri, s.track_uri, self.player.position())
+                ctx = self._context_progress(token.medium.uri, s.track_uri, self.player.position()) if token.whole else None
                 if ctx and ctx[3]:
                     fill = ctx[2] / ctx[3]  # Hörspiel als Ganzes
                 else:
@@ -572,7 +572,7 @@ class Engine:
 
     def token_fraction(self, t: Token) -> float | None:
         """Wie viel vom ganzen Inhalt gehört ist (0..1), falls die Titelliste bekannt ist."""
-        if t.shuffle:
+        if not t.whole:
             return None
         if t.progress.finished:
             return 1.0
@@ -592,6 +592,7 @@ class Engine:
         ctx = None
         if loaded and loaded.medium.uri == s.context_uri and not loaded.shuffle:
             ctx = self._context_progress(loaded.medium.uri, s.track_uri, self.player.position())
+        whole = ctx if loaded and loaded.whole else None
         return {
             "player": {
                 "available": s.available,
@@ -608,8 +609,8 @@ class Engine:
                 "username": s.username,
                 "track_index": ctx[0] if ctx else None,
                 "track_count": ctx[1] if ctx else None,
-                "context_position_ms": ctx[2] if ctx else None,
-                "context_duration_ms": ctx[3] if ctx else None,
+                "context_position_ms": whole[2] if whole else None,
+                "context_duration_ms": whole[3] if whole else None,
             },
             "placed": self.placed,
             "placed_known": token is not None,
@@ -632,7 +633,15 @@ class Engine:
 def token_dict(t: Token, fraction: float | None = None) -> dict:
     progress = asdict(t.progress)
     progress["fraction"] = fraction
-    return {"uid": t.uid, "name": t.name, "color": t.color, "medium": asdict(t.medium), "progress": progress, "shuffle": t.shuffle}
+    return {
+        "uid": t.uid,
+        "name": t.name,
+        "color": t.color,
+        "medium": asdict(t.medium),
+        "progress": progress,
+        "mode": t.mode,
+        "shuffle": t.shuffle,
+    }
 
 
 def _patch(obj, patch: dict):

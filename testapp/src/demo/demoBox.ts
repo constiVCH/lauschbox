@@ -11,7 +11,14 @@ import { catalog, mediumByUri, type Medium } from './catalog';
 
 export type Progress = { track: number; position: number; finished: boolean };
 
-export type Token = { uid: string; name: string; color: string; mediumUri: string; progress: Progress; shuffle?: boolean };
+export type Token = {
+  uid: string;
+  name: string;
+  color: string;
+  mediumUri: string;
+  progress: Progress;
+  mode?: 'hoerspiel' | 'titel' | 'zufall';
+};
 
 export type { LedMode };
 
@@ -156,6 +163,9 @@ class DemoBox {
     this.set({ notice: { id: ++this.noticeId, text, tone } });
   }
 
+  /** Nur zum Vorführen: zeigt, was die echte Box täte */
+  simulateSystem = (text: string) => this.notify(`(Demo) ${text}`);
+
   dismissNotice = (id: number) => {
     if (this.state.notice?.id === id) this.set({ notice: null });
   };
@@ -191,7 +201,7 @@ class DemoBox {
     }
     const m = mediumByUri(token.mediumUri);
     // Zufall: jedes Mal ein zufälliger Titel, kein Weiterhören
-    const p = token.shuffle && m
+    const p = token.mode === 'zufall' && m
       ? { track: Math.floor(Math.random() * m.tracks.length), position: 0 }
       : token.progress.finished
         ? { track: 0, position: 0 }

@@ -13,7 +13,7 @@ import socket
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import __version__, spotify_links, spotify_web
+from . import __version__, spotify_links, spotify_web, system
 from .engine import Engine, token_dict
 from .store import Medium
 
@@ -23,11 +23,13 @@ ENGINE = web.AppKey("engine", Engine)
 SIM = web.AppKey("sim", bool)
 HTTP = web.AppKey("http", aiohttp.ClientSession)
 HW = web.AppKey("hw", dict)
+MEMLOG = web.AppKey("memlog", object)
 CLIENTS = web.AppKey("clients", set)
 
 
-def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = None) -> web.Application:
+def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = None, memory_log=None) -> web.Application:
     app = web.Application(middlewares=[cors, errors])
+    app[MEMLOG] = memory_log
     app[ENGINE] = engine
     app[SIM] = simulate
     app[HW] = hardware or {}
@@ -75,7 +77,8 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
         if not spotify_links.parse(str(m.get("uri", ""))):
             raise web.HTTPBadRequest(text="Inhalt fehlt (Spotify-URI)")
         medium = Medium(uri=m["uri"], title=str(m.get("title") or "Spotify"), kind=str(m.get("kind") or "album"), cover_url=m.get("cover_url"))
-        token = engine.save_token(uid, name, color, medium, shuffle=bool(body.get("shuffle", False)))
+        mode = body.get("mode") or ("zufall" if body.get("shuffle") else None)  # „shuffle“: ältere App-Version
+        token = engine.save_token(uid, name, color, medium, mode=mode)
         return web.json_response(token_dict(token, engine.token_fraction(token)))
 
     @r.delete("/api/tokens/{uid}")
@@ -269,6 +272,62 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
         except ValueError as e:
             raise web.HTTPBadRequest(text=str(e)) from e
         return web.json_response({"ok": True})
+
+    # ---------- System: alles, wofür man sonst ein Terminal bräuchte (Eltern-PIN nötig) ----------
+
+    async def require_pin(request: web.Request) -> None:
+        if not engine.check_pin(request.headers.get("X-Parent-Pin", "")):
+            await asyncio.sleep(0.8)
+            raise web.HTTPForbidden(text="Eltern-PIN falsch")
+
+    @r.get("/api/system/info")
+    async def system_info(request: web.Request) -> web.Response:
+        data = system.info() | await system.version()
+        data["version"] = __version__
+        data["simulated"] = request.app[SIM]
+        if request.app[SIM]:
+            data["managed"] = True  # in der Simulation tun die Knöpfe nur so
+        return web.json_response(data)
+
+    @r.get("/api/system/log")
+    async def system_log(request: web.Request) -> web.Response:
+        await require_pin(request)
+        return web.json_response({"log": await system.logs(request.app[MEMLOG])})
+
+    @r.post("/api/system/{action}")
+    async def system_action(request: web.Request) -> web.Response:
+        await require_pin(request)
+        action = request.match_info["action"]
+        messages = {
+            "restart-spotify": "Spotify (go-librespot) wird neu gestartet.",
+            "restart-box": "Die Box-Software startet neu. Die App verbindet sich gleich wieder.",
+            "reboot": "Die Box startet neu. Das dauert etwa eine Minute.",
+            "poweroff": "Die Box schaltet sich aus. Zum Einschalten den Stecker kurz ziehen bzw. den Ein-Taster drücken.",
+            "spotify-logout": "Spotify ist abgemeldet. Den neuen Code auf spotify.com/pair eingeben.",
+            "update": "Update installiert. Die Box-Software startet neu.",
+        }
+        if action not in messages:
+            raise web.HTTPNotFound(text=f"unbekannte Aktion {action}")
+        if request.app[SIM]:
+            engine._notify(f"(Simulation) {messages[action]}")
+            return web.json_response({"ok": True, "simulated": True})
+        try:
+            output = None
+            if action == "restart-spotify":
+                await system.restart_spotify()
+            elif action == "restart-box":
+                await system.restart_box()
+            elif action in ("reboot", "poweroff"):
+                await system.power(action)
+            elif action == "spotify-logout":
+                await system.spotify_logout()
+            elif action == "update":
+                output = await system.update()
+                await system.restart_box(delay=1.5)
+        except system.BoxSystemError as e:
+            raise web.HTTPConflict(text=str(e)) from e
+        engine._notify(messages[action])
+        return web.json_response({"ok": True, "output": output})
 
     # ---------- Simulation (nur mit --fake) ----------
 

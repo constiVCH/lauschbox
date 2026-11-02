@@ -25,6 +25,14 @@ class Progress:
     finished: bool = False
 
 
+MODES = ("hoerspiel", "titel", "zufall")
+
+
+def default_mode(kind: str) -> str:
+    """Hörspiele kommen bei Spotify als Album oder Hörbuch, Musik eher als Playlist."""
+    return "hoerspiel" if kind in ("album", "audiobook") else "titel"
+
+
 @dataclass
 class Token:
     uid: str
@@ -32,7 +40,17 @@ class Token:
     color: str
     medium: Medium
     progress: Progress = field(default_factory=Progress)
-    shuffle: bool = False  # Zufallswiedergabe (für Musik); Hörspiele der Reihe nach mit Weiterhören
+    # hoerspiel: alle Titel als ein Ganzes (Gesamtfortschritt, fertig erst nach dem letzten)
+    # titel: der Reihe nach, Fortschritt pro Titel; zufall: gemischt
+    mode: str = "hoerspiel"
+
+    @property
+    def shuffle(self) -> bool:
+        return self.mode == "zufall"
+
+    @property
+    def whole(self) -> bool:
+        return self.mode == "hoerspiel"
 
 
 @dataclass
@@ -88,6 +106,13 @@ class Store:
         columns = {r[1] for r in self.db.execute("PRAGMA table_info(tokens)")}
         if "shuffle" not in columns:
             self.db.execute("ALTER TABLE tokens ADD COLUMN shuffle INTEGER NOT NULL DEFAULT 0")
+        if "mode" not in columns:
+            # Bisherige Token übernehmen: Zufall bleibt Zufall, sonst je nach Inhalt
+            self.db.execute("ALTER TABLE tokens ADD COLUMN mode TEXT")
+            self.db.execute(
+                "UPDATE tokens SET mode = CASE WHEN shuffle = 1 THEN 'zufall' "
+                "WHEN kind IN ('album', 'audiobook') THEN 'hoerspiel' ELSE 'titel' END"
+            )
         self.db.commit()
 
     # ---------- Token ----------
@@ -95,7 +120,7 @@ class Store:
     def tokens(self) -> list[Token]:
         rows = self.db.execute(
             """SELECT t.uid, t.name, t.color, t.uri, t.title, t.kind, t.cover_url,
-                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.shuffle
+                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.mode
                FROM tokens t LEFT JOIN progress p ON p.uid = t.uid ORDER BY t.created"""
         ).fetchall()
         return [self._token(r) for r in rows]
@@ -103,7 +128,7 @@ class Store:
     def token(self, uid: str) -> Token | None:
         r = self.db.execute(
             """SELECT t.uid, t.name, t.color, t.uri, t.title, t.kind, t.cover_url,
-                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.shuffle
+                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.mode
                FROM tokens t LEFT JOIN progress p ON p.uid = t.uid WHERE t.uid = ?""",
             (uid,),
         ).fetchone()
@@ -117,16 +142,17 @@ class Store:
             color=r[2],
             medium=Medium(uri=r[3], title=r[4], kind=r[5], cover_url=r[6]),
             progress=Progress(track_uri=r[7], track_number=r[8], track_name=r[9], position_ms=r[10] or 0, finished=bool(r[11])),
-            shuffle=bool(r[12]),
+            mode=r[12] if r[12] in MODES else default_mode(r[5]),
         )
 
-    def save_token(self, uid: str, name: str, color: str, medium: Medium, shuffle: bool = False) -> Token:
+    def save_token(self, uid: str, name: str, color: str, medium: Medium, mode: str | None = None) -> Token:
         old = self.token(uid)
+        mode = mode if mode in MODES else default_mode(medium.kind)
         self.db.execute(
-            """INSERT INTO tokens (uid, name, color, uri, title, kind, cover_url, created, shuffle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """INSERT INTO tokens (uid, name, color, uri, title, kind, cover_url, created, mode, shuffle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(uid) DO UPDATE SET name=excluded.name, color=excluded.color, uri=excluded.uri,
-                   title=excluded.title, kind=excluded.kind, cover_url=excluded.cover_url, shuffle=excluded.shuffle""",
-            (uid, name, color, medium.uri, medium.title, medium.kind, medium.cover_url, time.time(), int(shuffle)),
+                   title=excluded.title, kind=excluded.kind, cover_url=excluded.cover_url, mode=excluded.mode, shuffle=excluded.shuffle""",
+            (uid, name, color, medium.uri, medium.title, medium.kind, medium.cover_url, time.time(), mode, int(mode == "zufall")),
         )
         if old and old.medium.uri != medium.uri:
             # Neuer Inhalt: alter Hörstand passt nicht mehr

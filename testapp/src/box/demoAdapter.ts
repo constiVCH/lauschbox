@@ -1,9 +1,12 @@
 import { catalog, mediumByUri, totalSeconds, type Medium as DemoMedium } from '@/demo/catalog';
 import { demoBox, type BoxState } from '@/demo/demoBox';
 
-import type { BoxApi, BoxView, Medium } from './types';
+import { defaultMode, type BoxApi, type BoxView, type Medium } from './types';
 
 const DEMO_PIN = '1234';
+
+/** Demo-Katalog kennt nur Anzeigenamen; für den Vorschlag der Wiedergabe-Art reicht die Zuordnung. */
+const demoKind = (m: DemoMedium) => (m.kind === 'Hörbuch' ? 'audiobook' : m.kind === 'Album' ? 'album' : 'playlist');
 
 export function demoMedium(m: DemoMedium): Medium {
   return {
@@ -24,6 +27,7 @@ export function demoView(s: BoxState): BoxView {
     const m = mediumByUri(t.mediumUri) ?? catalog[0];
     const done = m.tracks.slice(0, t.progress.track).reduce((a, tr) => a + tr.seconds, 0) + t.progress.position;
     const total = totalSeconds(m);
+    const mode = t.mode ?? defaultMode(demoKind(m));
     return {
       uid: t.uid,
       name: t.name,
@@ -34,14 +38,15 @@ export function demoView(s: BoxState): BoxView {
         trackName: m.tracks[t.progress.track]?.title,
         positionS: t.progress.position,
         finished: t.progress.finished,
-        fraction: t.shuffle ? undefined : t.progress.finished ? 1 : total ? done / total : 0,
+        fraction: mode !== 'hoerspiel' ? undefined : t.progress.finished ? 1 : total ? done / total : 0,
       },
-      shuffle: !!t.shuffle,
+      mode,
     };
   });
   const placedToken = s.tokens.find((t) => t.uid === s.placed);
   const medium = placedToken ? mediumByUri(placedToken.mediumUri) : undefined;
   const track = medium?.tracks[s.track];
+  const whole = !!placedToken && !!medium && (placedToken.mode ?? defaultMode(demoKind(medium))) === 'hoerspiel';
   return {
     kind: 'demo',
     name: 'Demo-Box',
@@ -58,10 +63,8 @@ export function demoView(s: BoxState): BoxView {
             positionS: s.position,
             durationS: track.seconds,
             playing: s.playing,
-            contextPositionS: placedToken?.shuffle
-              ? undefined
-              : medium.tracks.slice(0, s.track).reduce((a, t) => a + t.seconds, 0) + s.position,
-            contextDurationS: placedToken?.shuffle ? undefined : totalSeconds(medium),
+            contextPositionS: whole ? medium.tracks.slice(0, s.track).reduce((a, t) => a + t.seconds, 0) + s.position : undefined,
+            contextDurationS: whole ? totalSeconds(medium) : undefined,
           }
         : null,
     playerAvailable: true,
@@ -105,7 +108,21 @@ export const demoApi: BoxApi = {
     demoBox.setSleep(sleep.kind === 'minutes' ? { kind: 'minutes', remaining: sleep.minutes * 60, total: sleep.minutes * 60 } : sleep),
   startLearn: demoBox.startLearn,
   cancelLearn: demoBox.cancelLearn,
-  saveToken: async ({ uid, name, color, medium, shuffle }) => demoBox.saveToken({ uid, name, color, mediumUri: medium.uri, shuffle }),
+  saveToken: async ({ uid, name, color, medium, mode }) => demoBox.saveToken({ uid, name, color, mediumUri: medium.uri, mode }),
+  systemInfo: async () => ({ managed: true, host: 'Demo-Box', version: 'Demo', commit: null, librespot: null, uptimeS: null, simulated: true }),
+  systemAction: async (action) => {
+    const texts: Record<string, string> = {
+      'restart-spotify': 'Spotify würde neu gestartet.',
+      'restart-box': 'Die Box-Software würde neu starten.',
+      reboot: 'Die Box würde neu starten.',
+      poweroff: 'Die Box würde sich ausschalten.',
+      'spotify-logout': 'Spotify würde abgemeldet, danach erschiene ein neuer Code.',
+      update: 'Die Box würde das neueste Update holen.',
+    };
+    demoBox.simulateSystem(texts[action]);
+    return null;
+  },
+  systemLog: async () => 'In der Demo gibt es kein Log. Mit der echten Box steht hier, was die Box zuletzt getan hat.',
   deleteToken: async (uid) => demoBox.deleteToken(uid),
   dismissNotice: demoBox.dismissNotice,
   verifyPin: async (pin) => pin === DEMO_PIN,
