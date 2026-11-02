@@ -37,7 +37,7 @@ class Token:
 @dataclass
 class Settings:
     start_volume: int = 40
-    max_volume: int = 80
+    max_volume: int = 100  # Gerätegrenze; begrenzt wird über den Kindermodus (kein eigener Regler in der App)
     volume_step: int = 5
     on_replace: str = "resume"  # resume | restart
     on_remove: str = "pause"  # pause | keep

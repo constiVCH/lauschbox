@@ -233,3 +233,14 @@ def test_neuer_inhalt_loescht_hoerstand(box):
         await engine.close()
 
     run(go())
+
+
+def test_kindermodus_100_prozent_erlaubt_volle_lautstaerke(box):
+    async def go():
+        engine, player = await box()
+        engine.update_kid({"max_volume": 100})
+        await engine.set_volume(100)
+        assert engine.volume_cap() == 100 and player.status.volume == 100
+        await engine.close()
+
+    run(go())
