@@ -20,3 +20,10 @@ def test_warte_punkt_ist_dunkel():
     frame = led_frame({"mode": "idle", "color": "#FFFFFF", "fill": 0, "brightness": 0.25}, t=0)
     lit = [c for c in frame if c != OFF]
     assert len(lit) == 1 and max(lit[0]) <= 12
+
+
+def test_orange_bleibt_orange():
+    # Ohne Gammakorrektur wäre Grün fast halb so hell wie Rot und das Orange wirkte weißlich
+    frame = led_frame({"mode": "playing", "color": "#FF8A3D", "fill": 1, "brightness": 1}, t=0)
+    r, g, b = frame[0]
+    assert r == 255 and g < 0.25 * r and b < 0.03 * r

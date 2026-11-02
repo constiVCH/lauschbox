@@ -31,6 +31,7 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 NUM_LEDS = 12
+GAMMA = 2.6  # wie im box-daemon: sonst wirken Mischfarben am Ring weißlich
 UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 KNOWN_I2C = {"0x24": "PN532", "0x36": "MAX17048", "0x57": "PiSugar", "0x68": "RTC/PiSugar", "0x75": "PiSugar"}
@@ -203,7 +204,7 @@ class Leds(Component):
             self.task.cancel()
             self.task = None
         self.pixels.brightness = max(0.0, min(float(cmd.get("brightness", 0.2)), 0.6))
-        color = _hex_to_rgb(cmd.get("color", "#ffffff"))
+        color = _gamma(_hex_to_rgb(cmd.get("color", "#ffffff")))
         mode = cmd.get("mode", "fill")
         if mode == "off":
             self.pixels.fill((0, 0, 0))
@@ -279,6 +280,10 @@ def _write_tone(path: Path, channel: str, volume: float, freq: float, seconds: f
         w.setsampwidth(2)
         w.setframerate(rate)
         w.writeframes(bytes(frames))
+
+
+def _gamma(c: tuple[int, int, int]) -> tuple[int, int, int]:
+    return tuple(round(255 * (v / 255) ** GAMMA) for v in c)  # type: ignore[return-value]
 
 
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:

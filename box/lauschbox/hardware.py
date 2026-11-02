@@ -23,6 +23,9 @@ HOLD_S = 1.0
 MISSES_FOR_REMOVAL = 3
 # Helligkeit des laufenden Punkts im Ruhezustand (Anteil der eingestellten LED-Helligkeit)
 IDLE_LEVEL = 0.15
+# Gammakorrektur: LEDs wirken bei kleinen Werten viel heller als gedacht. Ohne Korrektur kippen Mischfarben
+# (Orange, Rosa, Türkis) ins Weißliche, weil die schwächeren Kanäle zu stark durchscheinen.
+GAMMA = 2.6
 
 
 def open_pn532(mode: str = "auto"):
@@ -227,7 +230,7 @@ def led_frame(led: dict, t: float) -> list[tuple[int, int, int]]:
 
     def dim(c: tuple[int, int, int], a: float) -> tuple[int, int, int]:
         a = max(0.0, min(1.0, a * bright))
-        return (int(c[0] * a), int(c[1] * a), int(c[2] * a))
+        return tuple(round(255 * (v / 255) ** GAMMA * a) for v in c)  # type: ignore[return-value]
 
     if mode == "idle":
         head = int(t * 4) % NUM_LEDS
