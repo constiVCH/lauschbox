@@ -50,3 +50,27 @@ def test_bauteil_wird_nach_dem_start_erneut_versucht():
     ok_gemeldet = []
     asyncio.run(retry_parts({"leds": part}, ok_gemeldet.append, lambda: None, attempts=5, every_s=0.01))
     assert part.ok and part.versuche == 3 and ok_gemeldet == [part]
+
+
+def test_verstaerker_pin_nie_high(monkeypatch):
+    import sys
+    import types
+
+    from lauschbox.hardware import Amp
+
+    calls = []
+    fake = types.SimpleNamespace(
+        SET_PULL_NONE=0,
+        gpiochip_open=lambda chip: 7,
+        gpio_claim_output=lambda h, pin, level: calls.append(("output", pin, level)),
+        gpio_claim_input=lambda h, pin, flags: calls.append(("input", pin)),
+        gpio_free=lambda h, pin: calls.append(("free", pin)),
+    )
+    monkeypatch.setitem(sys.modules, "lgpio", fake)
+    amp = Amp()
+    amp.start()
+    assert amp.ok and amp.muted and calls == [("output", 16, 0)]
+    amp.unmute()
+    amp.mute()
+    assert calls[1:] == [("free", 16), ("input", 16), ("free", 16), ("output", 16, 0)]
+    assert all(c[2] == 0 for c in calls if c[0] == "output")  # nie HIGH

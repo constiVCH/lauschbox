@@ -39,7 +39,7 @@ LED-Ring DIN ───── GPIO10 [19] [20] GND
 Taster Play ────── GPIO5  [29] [30] GND     ──── Taster Play (2. Bein)
 Taster + ───────── GPIO6  [31] [32] GPIO12
 Taster − ───────── GPIO13 [33] [34] GND     ──── Taster + (2. Bein)
-Verstärker LRC ─── GPIO19 [35] [36] GPIO16       (später: Verstärker SD/Mute)
+Verstärker LRC ─── GPIO19 [35] [36] GPIO16  ──── Verstärker SD (stumm schalten)
                    GPIO26 [37] [38] GPIO20
 Taster − (2. Bein) ─ GND  [39] [40] GPIO21  ──── Verstärker DIN
 ```
@@ -58,15 +58,16 @@ So weißt du bei einem Fehler sofort, woran es liegt.
 | BCLK | 12 (GPIO18) | |
 | LRC | 35 (GPIO19) | |
 | DIN | 40 (GPIO21) | |
-| SD | **frei lassen** | Dann ist der Verstärker immer an und mischt links + rechts (Mono) |
+| SD | 36 (GPIO16) | Stummschaltung gegen das Knacken beim Starten/Stoppen und gegen Rauschen im Leerlauf. Ohne dieses Kabel ist der Verstärker immer an (geht auch, knackt aber) |
 | GAIN | frei lassen | 9 dB, reicht für den Anfang |
 
 Lautsprecher an die Schraubklemme **+ / −** des Verstärkers. Keine der beiden Lautsprecherleitungen an GND legen: Der Ausgang
 ist gebrückt, das würde den Verstärker beschädigen.
 
-> **Später (Mute über GPIO16):** SD nie direkt mit einem GPIO auf HIGH treiben. Bei 3,3 V schaltet der Chip auf „nur linker Kanal“.
-> Richtig ist: GPIO16 an SD, zum Stummschalten als Ausgang **LOW**, zum Einschalten auf **Eingang** (hochohmig) zurückschalten.
-> Dann sorgt der Widerstand auf dem Board wieder für Mono-Mix.
+> **Stummschaltung über GPIO16:** Die Box-Software zieht SD zum Stummschalten auf **LOW** und gibt den Pin zum Einschalten
+> frei (Eingang, hochohmig); dann sorgt der Widerstand auf dem Board für Mono-Mix. SD nie auf HIGH treiben: Bei 3,3 V
+> schaltet der Chip auf „nur linker Kanal“. Beim Abspielen schaltet die Box den Verstärker erst kurz nach dem Start ein
+> und beim Pausieren vor dem Stopp aus: Das Knacken des Verstärkers passiert so stumm.
 
 ### 2. NFC-Leser PN532 (über UART)
 
@@ -158,7 +159,7 @@ Die IP des Pi zeigt `hostname -I`. Die Test-App ([testapp/](../testapp/)) verbin
 | NFC: „Failed to detect the PN532“ | Schalter nicht beide OFF, nach dem Umstellen kein echter Stromausfall, TX/RX nicht über Kreuz (Pin 8/10 tauschen), serielle Schnittstelle aus (`ls -l /dev/serial0`) |
 | NFC über I2C: `i2cdetect` zeigt nichts | Schalter 1 ON/2 OFF, SDA/SCL tauschen, Takt senken (`dtparam=i2c_arm_baudrate=10000`). Bei manchen Modulen geht I2C trotzdem nicht: dann UART |
 | Lautsprecher stumm | `aplay -l` zeigt keine „MAX98357A“-Karte → Overlay fehlt; sonst BCLK/LRC vertauscht |
-| Lautsprecher brummt/rauscht im Leerlauf | normal ohne Mute; später über GPIO16 lösen (siehe oben) |
+| Lautsprecher brummt/rauscht oder knackt beim Start | SD an GPIO16 anschließen (siehe oben); in der App unter Einstellungen → Hardware muss „Verstärker stumm schalten“ OK zeigen |
 | LED-Ring dunkel | DIN/DOUT verwechselt, SPI nicht an (`dtparam=spi=on`), `ls /dev/spidev0.0` prüfen |
 | LED-Ring flackert | Pegel (siehe oben), Elko an den Ring, `core_freq_min=400` gesetzt? |
 | Taster lösen dauernd aus | Bein-Paar erwischt, das intern verbunden ist → diagonale Beine nehmen |

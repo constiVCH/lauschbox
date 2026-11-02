@@ -22,7 +22,7 @@
 | I2S BCLK (MAX98357A) | 18 | 12 | `dtoverlay=max98357a` |
 | I2S LRCLK | 19 | 35 | |
 | I2S DIN | 21 | 40 | |
-| Verstärker SD (Mute) | 16 | 36 | Abschalten gegen Rauschen im Leerlauf |
+| Verstärker SD (stumm) | 16 | 36 | Stumm = LOW, an = Pin frei (nie HIGH). Gegen Knacken beim Start/Stopp und Rauschen im Leerlauf |
 | PN532 RXD ← Pi TXD | 14 (UART TX) | 8 | Über Kreuz: TX an RX. `/dev/serial0`, 115200 Baud |
 | PN532 TXD → Pi RXD | 15 (UART RX) | 10 | |
 | I2C SDA (PiSugar) | 2 | 3 | PiSugar 0x57/0x68/0x75 |

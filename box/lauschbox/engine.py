@@ -31,6 +31,8 @@ NOTICE_SECONDS = 6
 SAVE_EVERY_S = 10
 # So lange nach „spielt nicht“ am Titelende warten, ob doch noch ein nächster Titel kommt (Titelliste unbekannt)
 END_CONFIRM_S = 4.0
+# Verstärker erst so lange nach dem Start einschalten: Das Knacken beim Öffnen der Audioausgabe passiert dann stumm
+AMP_ON_DELAY_S = 0.35
 # Titellisten (für den Gesamtfortschritt) so lange wiederverwenden; Playlists können sich ändern
 TRACKS_MAX_AGE_S = 24 * 3600
 
@@ -68,6 +70,8 @@ class Engine:
         self._tracks: dict[str, list[dict]] = {}  # Titellisten je Inhalt (URI)
         self._pending_removal: asyncio.Task | None = None  # Nachfrist nach dem Abnehmen
         self._fade_task: asyncio.Task | None = None  # laufendes Einblenden
+        self.amp = None  # Stummschaltung des Verstärkers (hardware.Amp), falls angeschlossen
+        self._amp_task: asyncio.Task | None = None
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
         self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
         player.on_change = self._on_player
@@ -195,6 +199,7 @@ class Engine:
         try:
             if self.volume > self.volume_cap():
                 await self.set_volume(self.volume_cap())
+            self._amp_mute()
             await self._before_fade()
             if same:
                 # Derselbe Token liegt wieder auf und der Player hat seinen Inhalt noch: einfach weiter
@@ -216,6 +221,7 @@ class Engine:
             self._notify("Spotify ist gerade nicht erreichbar. Läuft go-librespot und ist die Box online?", "warning")
             return "error"
         self._start_fade()
+        self._amp_on_soon()
         if p.finished:
             self.store.save_progress(token.uid, Progress())
         asyncio.ensure_future(self._load_tracks(token.medium.uri))
@@ -260,6 +266,7 @@ class Engine:
         if self.sleep["kind"] == "episode":
             self.sleep = {"kind": "off"}
         if was_loaded and self.settings.on_remove == "pause" and self.playing:
+            self._amp_mute()  # erst stumm, dann pausieren: das Knacken beim Stoppen bleibt ungehört
             try:
                 await self.player.pause()
             except (PlayerError, OSError, asyncio.TimeoutError) as e:
@@ -292,6 +299,7 @@ class Engine:
     async def toggle_play(self) -> None:
         if self.playing:
             self._save_progress()
+            self._amp_mute()
             await self.player.pause()
             return
         if self.bedtime_active():
@@ -305,9 +313,11 @@ class Engine:
         if self._loaded != token.uid:
             await self._start(token)
         elif self.player.status.track_uri:
+            self._amp_mute()
             await self._before_fade()
             await self.player.resume()
             self._start_fade()
+            self._amp_on_soon()
 
     async def restart(self) -> None:
         """Aufgelegten Token von vorn starten (Play lang drücken oder „Von vorn“ in der App)."""
@@ -331,6 +341,32 @@ class Engine:
 
     async def seek(self, position_ms: int) -> None:
         await self.player.seek(position_ms)
+
+    # ---------- Verstärker stumm schalten ----------
+
+    def _amp_mute(self) -> None:
+        if self._amp_task and not self._amp_task.done():
+            self._amp_task.cancel()
+        self._amp_task = None
+        if self.amp:
+            try:
+                self.amp.mute()
+            except Exception as e:  # noqa: BLE001 – lieber Knacken als gar kein Ton
+                log.warning("Verstärker stumm schalten: %s", e)
+
+    def _amp_on_soon(self) -> None:
+        if not self.amp:
+            return
+        if self._amp_task and not self._amp_task.done():
+            self._amp_task.cancel()
+        self._amp_task = asyncio.ensure_future(self._amp_on_later())
+
+    async def _amp_on_later(self) -> None:
+        await asyncio.sleep(AMP_ON_DELAY_S)
+        try:
+            self.amp.unmute()
+        except Exception as e:  # noqa: BLE001
+            log.warning("Verstärker einschalten: %s", e)
 
     # ---------- Einblenden ----------
 
@@ -510,12 +546,18 @@ class Engine:
             # Spotify spielt nach dem Ende etwas anderes (Autoplay): stoppen
             self._save_progress(finished=True)
             asyncio.ensure_future(self._pause_with(f"„{token.medium.title}“ ist zu Ende. Kein Autoplay, die Box bleibt still."))
+        if self.amp:
+            if status.playing and self.amp.muted and not (self._amp_task and not self._amp_task.done()):
+                self._amp_on_soon()  # Wiedergabe kam von woanders (z. B. Spotify-App)
+            elif reason in ("paused", "stopped") and not status.playing:
+                self._amp_mute()
         if status.volume and status.volume != self.volume and reason == "volume" and status.volume > self.volume_cap():
             # Lautstärke von außen (z. B. Spotify-App) über die Grenze gedreht: zurücksetzen
             asyncio.ensure_future(self.set_volume(self.volume_cap()))
         self._changed()
 
     def _finish(self, token: Token) -> None:
+        self._amp_mute()
         self._save_progress(finished=True)
         self._notify(
             f"„{token.medium.title}“ ist zu Ende."
@@ -572,6 +614,7 @@ class Engine:
         return dur > 0 and pos >= dur - 5000
 
     async def _pause_with(self, text: str) -> None:
+        self._amp_mute()
         try:
             await self.player.pause()
         except (PlayerError, OSError, asyncio.TimeoutError) as e:

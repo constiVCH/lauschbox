@@ -49,7 +49,7 @@ async def run(args, data_dir: Path) -> web.Application:
     hardware: dict = {}
 
     if not args.fake:
-        from .hardware import Buttons, LedRing, Nfc
+        from .hardware import Amp, Buttons, LedRing, Nfc
 
         loop = asyncio.get_running_loop()
 
@@ -62,10 +62,12 @@ async def run(args, data_dir: Path) -> web.Application:
         nfc = Nfc(loop, on_token, mode=args.nfc)
         buttons = Buttons(loop, engine.button)
         ring = LedRing()
-        for part in (nfc, buttons, ring):
+        amp = Amp()
+        for part in (nfc, buttons, ring, amp):
             part.start()
             log.info("%-8s %s  %s", part.name, "OK    " if part.ok else "FEHLER", part.detail)
-        hardware = {"nfc": nfc, "buttons": buttons, "leds": ring}
+        hardware = {"nfc": nfc, "buttons": buttons, "leds": ring, "amp": amp}
+        engine.amp = amp
 
     app = build_app(engine, simulate=args.fake, hardware=hardware, memory_log=args.memory_log)
     extras: dict = {}

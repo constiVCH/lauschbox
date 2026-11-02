@@ -206,6 +206,55 @@ class Buttons(Part):
         self.consumed.discard(name)
 
 
+class Amp(Part):
+    """Stummschaltung des MAX98357A über seinen SD-Pin an GPIO16 (Pin 36).
+
+    Stumm = GPIO16 auf LOW. An = Pin freigeben (Eingang): dann zieht der Widerstand auf dem Board SD hoch und der
+    Verstärker mischt links + rechts. Niemals HIGH treiben: Bei 3,3 V schaltet der Chip auf „nur linker Kanal“.
+    """
+
+    PIN = 16
+
+    def __init__(self):
+        super().__init__("amp")
+        self.muted = False
+        self._h = None
+
+    def start(self) -> None:
+        try:
+            import lgpio
+
+            self._lg = lgpio
+            for chip in (0, 4):  # Pi bis 4: gpiochip0, Pi 5: gpiochip4
+                try:
+                    self._h = lgpio.gpiochip_open(chip)
+                    break
+                except Exception:  # noqa: BLE001
+                    continue
+            if self._h is None:
+                raise RuntimeError("kein GPIO-Chip gefunden")
+            lgpio.gpio_claim_output(self._h, self.PIN, 0)
+            self.muted = True
+            self.ok, self.detail = True, "GPIO16 an SD: stumm, solange nichts spielt"
+        except Exception as e:  # noqa: BLE001
+            self.detail = f"{type(e).__name__}: {e}"
+            log.warning("Verstärker-Stummschaltung: %s", self.detail)
+
+    def mute(self) -> None:
+        if not self.ok or self.muted:
+            return
+        self._lg.gpio_free(self._h, self.PIN)
+        self._lg.gpio_claim_output(self._h, self.PIN, 0)
+        self.muted = True
+
+    def unmute(self) -> None:
+        if not self.ok or not self.muted:
+            return
+        self._lg.gpio_free(self._h, self.PIN)
+        self._lg.gpio_claim_input(self._h, self.PIN, self._lg.SET_PULL_NONE)
+        self.muted = False
+
+
 class LedRing(Part):
     def __init__(self):
         super().__init__("leds")

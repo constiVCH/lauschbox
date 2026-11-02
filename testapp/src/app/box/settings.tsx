@@ -222,7 +222,7 @@ function SettingSlider({ title, value, max, format, onEnd }: { title: string; va
   );
 }
 
-const PART_NAMES: Record<string, string> = { nfc: 'NFC-Leser', buttons: 'Taster', leds: 'LED-Ring' };
+const PART_NAMES: Record<string, string> = { nfc: 'NFC-Leser', buttons: 'Taster', leds: 'LED-Ring', amp: 'Verstärker stumm schalten' };
 
 /** Wie die Box ihre Bauteile beim Start vorgefunden hat. Bei FEHLER steht die Meldung darunter. */
 function HardwareSection() {

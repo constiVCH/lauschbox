@@ -470,3 +470,61 @@ def test_lautstaerke_drehen_beendet_einblenden(box):
         await engine.close()
 
     run(go())
+
+
+class FakeAmp:
+    """Merkt sich, wann stumm/an geschaltet wurde und ob der Player da gerade spielte."""
+
+    def __init__(self, player):
+        self.player = player
+        self.muted = True
+        self.log = []
+
+    def mute(self):
+        self.muted = True
+        self.log.append(("stumm", self.player.status.playing))
+
+    def unmute(self):
+        self.muted = False
+        self.log.append(("an", self.player.status.playing))
+
+
+def test_verstaerker_knackt_stumm(box, monkeypatch):
+    import lauschbox.engine as eng
+
+    monkeypatch.setattr(eng, "AMP_ON_DELAY_S", 0.05)
+
+    async def go():
+        engine, player = await box()
+        amp = FakeAmp(player)
+        engine.amp = amp
+        await engine.token_placed("tok1")
+        assert amp.muted  # direkt nach dem Start noch stumm
+        await asyncio.sleep(0.1)
+        assert not amp.muted and amp.log[-1] == ("an", True)
+        await engine.token_removed()
+        # erst stumm (Player lief noch), dann pausiert
+        assert ("stumm", True) in amp.log and not player.status.playing and amp.muted
+        await engine.close()
+
+    run(go())
+
+
+def test_kapitelwechsel_schaltet_nicht_stumm(box, monkeypatch):
+    import lauschbox.engine as eng
+
+    monkeypatch.setattr(eng, "AMP_ON_DELAY_S", 0.05)
+
+    async def go():
+        engine, player = await box()
+        amp = FakeAmp(player)
+        engine.amp = amp
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.1)
+        await player.seek(FakePlayer.TRACK_MS - 300)
+        await engine.tick()
+        await asyncio.sleep(1.0)  # Kapitel 1 endet, Kapitel 2 läuft
+        assert player.status.track_number == 2 and not amp.muted
+        await engine.close()
+
+    run(go())
