@@ -26,12 +26,13 @@ def run(coro):
 
 @pytest.fixture
 def box(tmp_path):
-    async def make(clock=None, grace=0.0):
+    async def make(clock=None, grace=0.0, fade=0.0):
         store = Store(tmp_path / "test.db")
         player = FakePlayer()
         engine = Engine(store, player, clock=clock or Clock())
         await engine.start()
-        engine.update_settings({"remove_grace_s": grace})  # die meisten Tests: Abnehmen wirkt sofort
+        # die meisten Tests: Abnehmen wirkt sofort, Lautstärke springt ohne Einblenden
+        engine.update_settings({"remove_grace_s": grace, "fade_in_s": fade})
         engine.save_token("tok1", "Funkel", "#FF8A3D", ALBUM)
         engine.save_token("tok2", "Schlaflieder", "#7B61FF", PLAYLIST)
         return engine, player
@@ -437,6 +438,35 @@ def test_anderer_token_in_der_nachfrist_wechselt_sofort(box):
         assert player.status.context_uri == PLAYLIST.uri and engine.placed == "tok2"
         await asyncio.sleep(0.1)
         assert not engine.removal_pending
+        await engine.close()
+
+    run(go())
+
+
+def test_einblenden_beim_start(box):
+    async def go():
+        engine, player = await box(fade=0.4)
+        await engine.set_volume(50)
+        await engine.token_placed("tok1")
+        assert player.status.volume == 0  # leise gestartet
+        await asyncio.sleep(0.2)
+        assert 0 < player.status.volume < 50
+        await asyncio.sleep(0.4)
+        assert player.status.volume == 50 and engine.volume == 50
+        await engine.close()
+
+    run(go())
+
+
+def test_lautstaerke_drehen_beendet_einblenden(box):
+    async def go():
+        engine, player = await box(fade=1.0)
+        await engine.set_volume(50)
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.1)
+        await engine.set_volume(20)
+        await asyncio.sleep(1.1)
+        assert player.status.volume == 20  # das Einblenden hat nicht weiter hochgedreht
         await engine.close()
 
     run(go())

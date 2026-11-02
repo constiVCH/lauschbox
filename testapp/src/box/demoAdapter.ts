@@ -90,7 +90,7 @@ export function demoView(s: BoxState): BoxView {
     sim: { tray: s.tray },
     demo: { speed: s.speed, bedtime: s.bedtime },
     hardware: {},
-    settings: { removeGraceS: s.removeGraceS },
+    settings: { removeGraceS: s.removeGraceS, fadeInS: s.fadeInS },
     removalPending: s.removalPending,
   };
 }
@@ -131,6 +131,7 @@ export const demoApi: BoxApi = {
   verifyPin: async (pin) => pin === DEMO_PIN,
   setSettings: async (patch) => {
     if (patch.removeGraceS !== undefined) demoBox.setRemoveGrace(patch.removeGraceS);
+    if (patch.fadeInS !== undefined) demoBox.setFadeIn(patch.fadeInS);
   },
   setKid: async (patch) => {
     const { enabled, maxVolume, noAutoplay, bedtimeMaxVolume, knownTokensOnly } = patch;

@@ -23,7 +23,7 @@ type RawState = {
   placed: string | null;
   loaded: string | null;
   removal_pending?: boolean;
-  settings: { remove_grace_s?: number };
+  settings: { remove_grace_s?: number; fade_in_s?: number };
   volume: number;
   volume_cap: number;
   locked: boolean;
@@ -227,7 +227,7 @@ export class RemoteBox {
       sim: r.box.simulated ? { tray: [...r.tokens.map((t) => t.uid), this.blankUid] } : null,
       demo: null,
       hardware: r.box.hardware ?? {},
-      settings: { removeGraceS: r.settings?.remove_grace_s ?? 2 },
+      settings: { removeGraceS: r.settings?.remove_grace_s ?? 2, fadeInS: r.settings?.fade_in_s ?? 1 },
       removalPending: !!r.removal_pending,
     };
   }
@@ -296,6 +296,7 @@ export class RemoteBox {
     setSettings: async (patch) => {
       const body: Record<string, unknown> = {};
       if (patch.removeGraceS !== undefined) body.remove_grace_s = patch.removeGraceS;
+      if (patch.fadeInS !== undefined) body.fade_in_s = patch.fadeInS;
       await this.call('PUT', '/api/settings', body).catch((e) => this.fail(e));
     },
     verifyPin: async (pin) => (await this.call<{ ok: boolean }>('POST', '/api/kidmode/verify', { pin })).ok,

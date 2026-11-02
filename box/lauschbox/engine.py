@@ -67,6 +67,7 @@ class Engine:
         self._task: asyncio.Task | None = None
         self._tracks: dict[str, list[dict]] = {}  # Titellisten je Inhalt (URI)
         self._pending_removal: asyncio.Task | None = None  # Nachfrist nach dem Abnehmen
+        self._fade_task: asyncio.Task | None = None  # laufendes Einblenden
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
         self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
         player.on_change = self._on_player
@@ -194,6 +195,7 @@ class Engine:
         try:
             if self.volume > self.volume_cap():
                 await self.set_volume(self.volume_cap())
+            await self._before_fade()
             if same:
                 # Derselbe Token liegt wieder auf und der Player hat seinen Inhalt noch: einfach weiter
                 await self.player.resume()
@@ -213,6 +215,7 @@ class Engine:
             self._flash_led("error", 2.0)
             self._notify("Spotify ist gerade nicht erreichbar. Läuft go-librespot und ist die Box online?", "warning")
             return "error"
+        self._start_fade()
         if p.finished:
             self.store.save_progress(token.uid, Progress())
         asyncio.ensure_future(self._load_tracks(token.medium.uri))
@@ -302,7 +305,9 @@ class Engine:
         if self._loaded != token.uid:
             await self._start(token)
         elif self.player.status.track_uri:
+            await self._before_fade()
             await self.player.resume()
+            self._start_fade()
 
     async def restart(self) -> None:
         """Aufgelegten Token von vorn starten (Play lang drücken oder „Von vorn“ in der App)."""
@@ -327,7 +332,35 @@ class Engine:
     async def seek(self, position_ms: int) -> None:
         await self.player.seek(position_ms)
 
+    # ---------- Einblenden ----------
+
+    def _cancel_fade(self) -> None:
+        if self._fade_task and not self._fade_task.done():
+            self._fade_task.cancel()
+        self._fade_task = None
+
+    async def _before_fade(self) -> None:
+        """Vor dem Abspielen leise stellen, damit der Start nicht schlagartig laut ist."""
+        self._cancel_fade()
+        if self.settings.fade_in_s > 0 and self.volume > 0:
+            await self.player.set_volume(0)
+
+    def _start_fade(self) -> None:
+        if self.settings.fade_in_s > 0 and self.volume > 0:
+            self._fade_task = asyncio.ensure_future(self._fade_in(self.volume, self.settings.fade_in_s))
+
+    async def _fade_in(self, target: int, seconds: float) -> None:
+        steps = max(4, int(seconds * 12))
+        try:
+            for i in range(1, steps + 1):
+                await asyncio.sleep(seconds / steps)
+                await self.player.set_volume(round(target * i / steps))
+        except (PlayerError, OSError, asyncio.TimeoutError) as e:
+            log.info("Einblenden abgebrochen: %s", e)
+            await self.player.set_volume(target)
+
     async def set_volume(self, volume: int, from_box: bool = False) -> None:
+        self._cancel_fade()  # wer selbst dreht, hat Vorrang vor dem Einblenden
         volume = max(0, min(int(volume), self.volume_cap()))
         self.volume = volume
         await self.player.set_volume(volume)
@@ -417,6 +450,7 @@ class Engine:
         self.settings = _patch(self.settings, patch)
         self.settings.max_volume = max(10, min(100, self.settings.max_volume))
         self.settings.remove_grace_s = max(0.0, min(5.0, self.settings.remove_grace_s))
+        self.settings.fade_in_s = max(0.0, min(3.0, self.settings.fade_in_s))
         self.store.save_settings(self.settings)
         self._changed()
         return self.settings

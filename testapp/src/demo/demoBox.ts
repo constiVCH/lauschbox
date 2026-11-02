@@ -56,6 +56,8 @@ export type BoxState = {
   /** Nachfrist in Sekunden, wenn ein Token kurz abgenommen wird */
   removeGraceS: number;
   removalPending: boolean;
+  /** Nur gemerkt, die Demo hat keinen Ton */
+  fadeInS: number;
 };
 
 const initialTokens: Token[] = [
@@ -89,6 +91,7 @@ class DemoBox {
     notice: null,
     removeGraceS: 2,
     removalPending: false,
+    fadeInS: 1,
   };
   private graceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -250,6 +253,8 @@ class DemoBox {
     }
     this.removeNow();
   };
+
+  setFadeIn = (seconds: number) => this.set({ fadeInS: Math.max(0, Math.min(3, seconds)) });
 
   setRemoveGrace = (seconds: number) => this.set({ removeGraceS: Math.max(0, Math.min(5, seconds)) });
 

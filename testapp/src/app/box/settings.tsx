@@ -165,39 +165,60 @@ function Settings({ pin }: { pin: string }) {
   );
 }
 
-/** Verhalten der Box: Nachfrist beim Abnehmen eines Tokens. */
+/** Verhalten der Box: Einblenden beim Start und Nachfrist beim Abnehmen eines Tokens. */
 function BehaviorSection() {
   const { view, api } = useBox();
-  const [draft, setDraft] = useState<number | null>(null);
-  const value = draft ?? view.settings.removeGraceS;
-  const label = value === 0 ? 'Aus' : `${value.toLocaleString('de-DE')} s`;
+  const seconds = (v: number) => (v === 0 ? 'Aus' : `${v.toLocaleString('de-DE')} s`);
   return (
     <Section
-      title="Token abnehmen"
-      footer="So lange spielt die Box weiter, wenn ein Token kurz abgenommen wird, etwa beim Wackeln oder wenn der Leser kurz aussetzt. Kommt derselbe Token zurück, geht es nahtlos weiter."
+      title="Wiedergabe"
+      footer="Einblenden: Der Ton wird beim Start langsam lauter statt schlagartig. Nachfrist: So lange spielt die Box weiter, wenn ein Token kurz abgenommen wird (Wackeln, Lesefehler); kommt er zurück, geht es nahtlos weiter."
     >
-      <Card style={{ gap: space.sm }}>
-        <View style={styles.sliderHead}>
-          <Txt variant="body">Weiterspielen für</Txt>
-          <Txt variant="body" color="secondary" style={{ fontVariant: ['tabular-nums'] }}>
-            {label}
-          </Txt>
-        </View>
-        <Slider
-          label="Nachfrist beim Abnehmen"
-          value={value}
-          min={0}
+      <Card style={{ gap: space.lg }}>
+        <SettingSlider
+          title="Einblenden"
+          value={view.settings.fadeInS}
+          max={3}
+          format={seconds}
+          onEnd={(v) => api.setSettings({ fadeInS: v })}
+        />
+        <SettingSlider
+          title="Nachfrist beim Abnehmen"
+          value={view.settings.removeGraceS}
           max={5}
-          step={0.5}
-          onChange={setDraft}
-          onEnd={(v) => {
-            setDraft(null);
-            api.setSettings({ removeGraceS: v });
-          }}
-          format={(v) => (v === 0 ? 'aus' : `${v} Sekunden`)}
+          format={seconds}
+          onEnd={(v) => api.setSettings({ removeGraceS: v })}
         />
       </Card>
     </Section>
+  );
+}
+
+function SettingSlider({ title, value, max, format, onEnd }: { title: string; value: number; max: number; format: (v: number) => string; onEnd: (v: number) => void }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? value;
+  return (
+    <View style={{ gap: space.sm }}>
+      <View style={styles.sliderHead}>
+        <Txt variant="body">{title}</Txt>
+        <Txt variant="body" color="secondary" style={{ fontVariant: ['tabular-nums'] }}>
+          {format(shown)}
+        </Txt>
+      </View>
+      <Slider
+        label={title}
+        value={shown}
+        min={0}
+        max={max}
+        step={0.5}
+        onChange={setDraft}
+        onEnd={(v) => {
+          setDraft(null);
+          onEnd(v);
+        }}
+        format={format}
+      />
+    </View>
   );
 }
 

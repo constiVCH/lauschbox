@@ -125,6 +125,8 @@ export type BoxButton = 'minus' | 'play' | 'plus';
 export type BoxSettings = {
   /** So lange spielt die Box weiter, wenn ein Token kurz abgenommen wird (0 = sofort pausieren) */
   removeGraceS: number;
+  /** Beim Start so lange von leise auf die eingestellte Lautstärke einblenden (0 = aus) */
+  fadeInS: number;
 };
 
 export type SystemAction = 'restart-spotify' | 'restart-box' | 'reboot' | 'poweroff' | 'spotify-logout' | 'update';

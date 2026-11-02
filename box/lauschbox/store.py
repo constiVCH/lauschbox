@@ -64,6 +64,8 @@ class Settings:
     night_brightness: float = 0.08
     # Token kurz abgenommen (Wackeln, Lesefehler): so lange weiterspielen, bevor pausiert wird
     remove_grace_s: float = 2.0
+    # Beim Start von 0 auf die eingestellte Lautstärke einblenden (0 = aus)
+    fade_in_s: float = 1.0
 
 
 @dataclass
