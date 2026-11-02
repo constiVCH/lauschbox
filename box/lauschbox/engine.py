@@ -163,9 +163,9 @@ class Engine:
 
         return await self._start(token)
 
-    async def _start(self, token: Token) -> str:
+    async def _start(self, token: Token, from_start: bool = False) -> str:
         p = token.progress
-        restart = self.settings.on_replace == "restart" or p.finished
+        restart = from_start or self.settings.on_replace == "restart" or p.finished
         status = self.player.status
         same = not restart and self._loaded == token.uid and status.context_uri == token.medium.uri and bool(status.track_uri)
         prev_loaded = self._loaded
@@ -173,6 +173,8 @@ class Engine:
         self._loaded = token.uid
         if self._finished == token.uid and not same:
             self._finished = None
+        if restart:
+            self.store.save_progress(token.uid, Progress())
         if not same:
             self._last_track = None  # erst die erste Meldung des neuen Inhalts zählt
         try:
@@ -247,10 +249,27 @@ class Engine:
             self._notify("Schlafenszeit: Weiterhören geht morgen früh wieder.")
             return
         token = self.token()
-        if token and self._loaded != token.uid:
+        if not token:
+            # Ohne aufgelegten Token startet nichts, auch nicht der zuletzt gehörte Inhalt
+            return
+        if self._loaded != token.uid:
             await self._start(token)
         elif self.player.status.track_uri:
             await self.player.resume()
+
+    async def restart(self) -> None:
+        """Aufgelegten Token von vorn starten (Play lang drücken oder „Von vorn“ in der App)."""
+        token = self.token()
+        if not token:
+            return
+        if self.bedtime_active():
+            self._flash_led("denied", 1.6)
+            self._notify("Schlafenszeit: Neue Geschichten starten erst morgen früh.")
+            return
+        if await self._start(token, from_start=True) != "error":
+            # Ganzer Ring kurz in Token-Farbe: „geht von vorn los“
+            self._flash_led("playing", 0.9, color=token.color, fill=1.0)
+            self._notify(f"„{token.name}“ startet von vorn.")
 
     async def skip(self, direction: int) -> None:
         if not self.player.status.track_uri:
@@ -281,6 +300,8 @@ class Engine:
         try:
             if name == "play_pause" and press == "kurz":
                 await self.toggle_play()
+            elif name == "play_pause" and press == "lang":
+                await self.restart()
             elif name in ("lauter", "leiser") and press == "kurz":
                 step = self.settings.volume_step * (1 if name == "lauter" else -1)
                 await self.set_volume(self.volume + step, from_box=True)

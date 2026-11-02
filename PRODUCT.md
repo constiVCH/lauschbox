@@ -53,7 +53,8 @@ nach Anleitung nach und richten die App selbst ein.
 - Funktionen: Player-Fernsteuerung, Sleep-Timer, Token anlernen/bearbeiten/löschen, Hörstand je Token,
   Einstellungen (Lautstärke, Verhalten beim Auflegen/Abnehmen, LEDs, Energie), Kindermodus mit Eltern-PIN.
 - Aktueller Stand (2026-11-01): box-daemon und App sind verbunden und am PC im Simulationsmodus durchgetestet;
-  am echten Pi noch nicht. Es fehlen noch: Spotify-Suche (Login), BLE-Einrichtung, Akku-Anbindung, lokale Medien.
+  am echten Pi laufen Wiedergabe, NFC (über UART), Taster und LEDs. Es fehlen noch: BLE-Einrichtung, Akku-Anbindung,
+  lokale Medien.
 - Haupt-App seit 2026-11-01: Expo-App in `testapp/` (die Flutter-App ruht). Verbindet sich mit dem box-daemon
   (Token anlernen per Spotify-Link, Wiedergabe, Sleep-Timer, Kindermodus mit PIN), dazu Demo-Box und Hardware-Test.
   Gestaltung nach dem Skill `apple-design` (Federn, 1:1-Gesten, Material, reduzierte Bewegung). Läuft per Expo Go

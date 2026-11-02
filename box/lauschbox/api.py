@@ -13,7 +13,7 @@ import socket
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import __version__, spotify_links
+from . import __version__, spotify_links, spotify_web
 from .engine import Engine, token_dict
 from .store import Medium
 
@@ -97,6 +97,34 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             raise web.HTTPBadRequest(text=str(e)) from e
         return web.json_response({"uri": medium.uri, "title": medium.title, "kind": medium.kind, "cover_url": medium.cover_url})
 
+    async def web_token() -> str:
+        token = await engine.player.web_token()
+        if not token:
+            raise web.HTTPServiceUnavailable(text="Spotify-Suche geht nur, wenn go-librespot läuft und angemeldet ist. Ein Link geht immer.")
+        return token
+
+    @r.get("/api/spotify/search")
+    async def search(request: web.Request) -> web.Response:
+        q = request.query.get("q", "").strip()
+        if len(q) < 2:
+            return web.json_response([])
+        if request.app[SIM]:
+            return web.json_response(spotify_web.fake_search(q))
+        try:
+            return web.json_response(await spotify_web.search(request.app[HTTP], await web_token(), q))
+        except spotify_web.SpotifyWebError as e:
+            raise web.HTTPBadGateway(text=str(e)) from e
+
+    @r.get("/api/spotify/library")
+    async def library(request: web.Request) -> web.Response:
+        """Eigene Playlists und gespeicherte Alben aus dem Spotify-Konto der Box."""
+        if request.app[SIM]:
+            return web.json_response(spotify_web.fake_library())
+        try:
+            return web.json_response(await spotify_web.library(request.app[HTTP], await web_token()))
+        except spotify_web.SpotifyWebError as e:
+            raise web.HTTPBadGateway(text=str(e)) from e
+
     @r.get("/api/spotify/auth-code")
     async def auth_code(request: web.Request) -> web.Response:
         """Code für spotify.com/pair, solange go-librespot auf die Anmeldung wartet."""
@@ -114,6 +142,8 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             await engine.skip(1)
         elif action == "prev":
             await engine.skip(-1)
+        elif action == "restart":
+            await engine.restart()
         elif action == "seek":
             await engine.seek(int(body.get("position_ms", 0)))
         elif action == "volume":

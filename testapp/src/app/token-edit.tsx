@@ -10,7 +10,7 @@ import { RequireBox, useBox } from '@/box/BoxContext';
 import type { BoxApi, Medium } from '@/box/types';
 import { Cover, TokenDisc } from '@/components/Cover';
 import { Tap } from '@/components/Tap';
-import { Button, Card, Section, Txt } from '@/components/ui';
+import { Button, Card, Section, Segmented, Txt } from '@/components/ui';
 import { formatTime } from '@/demo/catalog';
 import { radius, space, tokenColorNames, tokenColors, type, useColors } from '@/theme';
 
@@ -157,7 +157,7 @@ function TokenEdit() {
         {api.catalog ? (
           <CatalogPicker catalog={api.catalog} selected={medium?.uri} onPick={pick} error={mediumError} />
         ) : (
-          <SpotifyLinkPicker api={api} medium={medium} onPick={pick} error={mediumError} />
+          <SpotifyPicker api={api} medium={medium} onPick={pick} error={mediumError} />
         )}
 
         {saveError && (
@@ -172,8 +172,186 @@ function TokenEdit() {
   );
 }
 
-/** Echte Box: Link aus der Spotify-App („Teilen → Link kopieren“) einfügen, die Box holt Titel und Cover. */
-function SpotifyLinkPicker({ api, medium, onPick, error }: { api: BoxApi; medium: Medium | null; onPick: (m: Medium) => void; error: string | null }) {
+/** Echte Box: Inhalt per Spotify-Suche, aus den eigenen Playlists/Alben oder per Link wählen. */
+function SpotifyPicker({ api, medium, onPick, error }: { api: BoxApi; medium: Medium | null; onPick: (m: Medium) => void; error: string | null }) {
+  const c = useColors();
+  const [mode, setMode] = useState<'search' | 'library' | 'link'>(api.search ? 'search' : 'link');
+  const footer =
+    mode === 'link'
+      ? 'In der Spotify-App beim Album, Hörbuch oder der Playlist: Teilen → Link kopieren. Dann hier einfügen.'
+      : mode === 'library'
+        ? 'Deine Playlists und gespeicherten Alben aus dem Spotify-Konto der Box.'
+        : 'Alben, Playlists, Hörbücher und Podcasts. Ein Token spielt den ganzen Inhalt, nicht nur ein Lied.';
+  return (
+    <Section title="Inhalt" footer={footer}>
+      {medium && <PickedMedium medium={medium} />}
+      {api.search && (
+        <Segmented
+          label="Inhalt finden über"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'search', label: 'Suchen' },
+            { value: 'library', label: 'Meine' },
+            { value: 'link', label: 'Link' },
+          ]}
+        />
+      )}
+      {mode === 'search' && <SearchResults api={api} selected={medium?.uri} onPick={onPick} />}
+      {mode === 'library' && <LibraryResults api={api} selected={medium?.uri} onPick={onPick} />}
+      {mode === 'link' && <LinkInput api={api} hasMedium={!!medium} onPick={onPick} />}
+      {error && (
+        <Txt variant="footnote" color={c.danger}>
+          {error}
+        </Txt>
+      )}
+    </Section>
+  );
+}
+
+function PickedMedium({ medium }: { medium: Medium }) {
+  const c = useColors();
+  return (
+    <Card style={styles.picked}>
+      <Cover medium={medium} size={56} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="headline" numberOfLines={2}>
+          {medium.title}
+        </Txt>
+        <Txt variant="footnote" color="secondary" numberOfLines={1}>
+          {[medium.kindLabel, medium.subtitle].filter(Boolean).join(' · ')}
+        </Txt>
+      </View>
+      <Ionicons name="checkmark-circle" size={24} color={c.success} />
+    </Card>
+  );
+}
+
+function SearchResults({ api, selected, onPick }: { api: BoxApi; selected?: string; onPick: (m: Medium) => void }) {
+  const c = useColors();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Medium[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const latest = useRef(0);
+
+  // Suchen, sobald eine kurze Tipp-Pause entsteht; ältere Antworten verwerfen
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2 || !api.search) return;
+    const id = ++latest.current;
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const found = await api.search!(q);
+        if (id === latest.current) {
+          setResults(found);
+          setFailure(null);
+        }
+      } catch (e) {
+        if (id === latest.current) setFailure(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (id === latest.current) setBusy(false);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query, api]);
+
+  const tooShort = query.trim().length < 2;
+  return (
+    <>
+      <View style={[styles.search, { backgroundColor: c.surface }]}>
+        <Ionicons name="search" size={18} color={c.textTertiary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="z. B. Drache Funkel, Schlaflieder"
+          placeholderTextColor={c.textTertiary}
+          autoCorrect={false}
+          returnKeyType="search"
+          accessibilityLabel="Bei Spotify suchen"
+          style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
+        />
+        {busy && <ActivityIndicator color={c.textSecondary} />}
+      </View>
+      {failure ? (
+        <Txt variant="footnote" color={c.danger}>
+          {failure}
+        </Txt>
+      ) : (
+        !tooShort && results && <MediumList items={results} selected={selected} onPick={onPick} empty={`Nichts gefunden für „${query.trim()}“.`} />
+      )}
+    </>
+  );
+}
+
+function LibraryResults({ api, selected, onPick }: { api: BoxApi; selected?: string; onPick: (m: Medium) => void }) {
+  const c = useColors();
+  const [items, setItems] = useState<Medium[] | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.library?.().then(
+      (found) => alive && setItems(found),
+      (e: Error) => alive && setFailure(e.message),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api]);
+  if (failure)
+    return (
+      <Txt variant="footnote" color={c.danger}>
+        {failure}
+      </Txt>
+    );
+  if (!items) return <ActivityIndicator color={c.textSecondary} style={{ marginVertical: space.lg }} />;
+  return <MediumList items={items} selected={selected} onPick={onPick} empty="Keine Playlists oder gespeicherten Alben gefunden." />;
+}
+
+function MediumList({ items, selected, onPick, empty }: { items: Medium[]; selected?: string; onPick: (m: Medium) => void; empty: string }) {
+  const c = useColors();
+  if (items.length === 0)
+    return (
+      <Txt variant="callout" color="secondary" style={{ padding: space.lg, textAlign: 'center' }}>
+        {empty}
+      </Txt>
+    );
+  return (
+    <Card padded={false}>
+      {items.map((m, i) => {
+        const active = m.uri === selected;
+        const meta = [m.kindLabel, m.subtitle, m.trackCount ? `${m.trackCount} Titel` : null].filter(Boolean).join(' · ');
+        return (
+          <Tap
+            key={m.uri}
+            onPress={() => onPick(m)}
+            haptic="selection"
+            scaleTo={0.985}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${m.title}, ${meta}`}
+          >
+            <View style={[styles.result, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.fillStrong }]}>
+              <Cover medium={m} size={44} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="subhead" style={{ fontWeight: '600' }} numberOfLines={2}>
+                  {m.title}
+                </Txt>
+                <Txt variant="footnote" color="secondary" numberOfLines={1}>
+                  {meta}
+                </Txt>
+              </View>
+              <Ionicons name={active ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={active ? c.accent : c.textTertiary} />
+            </View>
+          </Tap>
+        );
+      })}
+    </Card>
+  );
+}
+
+function LinkInput({ api, hasMedium, onPick }: { api: BoxApi; hasMedium: boolean; onPick: (m: Medium) => void }) {
   const c = useColors();
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
@@ -200,28 +378,14 @@ function SpotifyLinkPicker({ api, medium, onPick, error }: { api: BoxApi; medium
   };
 
   return (
-    <Section title="Inhalt" footer="In der Spotify-App beim Album, Hörbuch oder der Playlist: Teilen → Link kopieren. Dann hier einfügen.">
-      {medium && (
-        <Card style={styles.picked}>
-          <Cover medium={medium} size={56} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Txt variant="headline" numberOfLines={2}>
-              {medium.title}
-            </Txt>
-            <Txt variant="footnote" color="secondary" numberOfLines={1}>
-              {medium.kindLabel} · Spotify
-            </Txt>
-          </View>
-          <Ionicons name="checkmark-circle" size={24} color={c.success} />
-        </Card>
-      )}
-      <View style={[styles.search, { backgroundColor: c.surface }, (error || linkError) && { borderColor: c.danger, borderWidth: 1 }]}>
+    <>
+      <View style={[styles.search, { backgroundColor: c.surface }, linkError && { borderColor: c.danger, borderWidth: 1 }]}>
         <Ionicons name="link" size={18} color={c.textTertiary} />
         <TextInput
           value={link}
           onChangeText={setLink}
           onSubmitEditing={() => resolve(link)}
-          placeholder={medium ? 'Anderen Link einfügen' : 'https://open.spotify.com/…'}
+          placeholder={hasMedium ? 'Anderen Link einfügen' : 'https://open.spotify.com/…'}
           placeholderTextColor={c.textTertiary}
           autoCapitalize="none"
           autoCorrect={false}
@@ -236,12 +400,12 @@ function SpotifyLinkPicker({ api, medium, onPick, error }: { api: BoxApi; medium
         <Button label="Einfügen" icon="clipboard" kind="secondary" compact onPress={paste} disabled={busy} />
         {link.trim() !== '' && <Button label="Übernehmen" compact onPress={() => resolve(link)} disabled={busy} />}
       </View>
-      {(linkError || error) && (
+      {linkError && (
         <Txt variant="footnote" color={c.danger}>
-          {linkError ?? error}
+          {linkError}
         </Txt>
       )}
-    </Section>
+    </>
   );
 }
 

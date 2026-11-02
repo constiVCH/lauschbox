@@ -60,7 +60,6 @@ export function NoticeToast() {
 
   return (
     <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom: insets.bottom + TAB_BAR_SPACE - space.md }, style]}>
-      {/* Volle Breite vorgeben: sonst bekommt der Text in der Zeile auf dem Handy keine Breite und nur das Symbol bleibt */}
       <Tap
         onPress={() => hide(notice.id)}
         haptic={null}
@@ -71,7 +70,9 @@ export function NoticeToast() {
       >
         <View style={[styles.toast, { backgroundColor: c.surfaceRaised }]}>
           <Ionicons name={icon} size={22} color={tone} />
-          <Txt variant="subhead" style={{ flex: 1, fontWeight: '500' }}>
+          {/* flexShrink statt flex: 1 – mit flex: 1 bekommt der Text auf dem Handy keine Breite und nur das Symbol bleibt;
+              so wird der Hinweis so breit wie sein Text und bricht erst an der Bildschirmkante um */}
+          <Txt variant="subhead" style={{ flexShrink: 1, fontWeight: '500' }}>
             {notice.text}
           </Txt>
         </View>
@@ -82,10 +83,8 @@ export function NoticeToast() {
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: space.lg, right: space.lg, alignItems: 'center' },
-  tap: { alignSelf: 'stretch' },
+  tap: { maxWidth: '100%' },
   toast: {
-    width: '100%',
-    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,

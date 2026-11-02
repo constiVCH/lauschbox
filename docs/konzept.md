@@ -41,21 +41,33 @@
 **Token anlernen (App)**
 1. App: „Neuer Token“ → Box geht in Lernmodus (LED blau pulsierend). Liegt schon ein leerer Token auf, gilt er sofort.
 2. Token auflegen → Box meldet die UID im Zustand (`learned_uid`), die App öffnet das Blatt „Neuer Token“.
-3. App: Inhalt wählen
-   - **umgesetzt:** Spotify-Link einfügen (in Spotify: Teilen → Link kopieren). Die Box macht daraus die URI und holt
-     Titel und Cover über den öffentlichen oEmbed-Dienst von Spotify, ganz ohne Login.
-   - später: Spotify-Suche (braucht den Web-API-Login, siehe unten), lokales Medium wählen bzw. hochladen.
+3. App: Inhalt wählen, immer ein ganzes Album, eine Playlist, ein Hörbuch oder ein Podcast:
+   - **Suchen:** Spotify-Suche über die Box (siehe „Spotify-Login“).
+   - **Meine:** eigene Playlists und gespeicherte Alben aus dem Spotify-Konto der Box.
+   - **Link:** Spotify-Link einfügen (in Spotify: Teilen → Link kopieren). Die Box holt Titel und Cover über den
+     öffentlichen oEmbed-Dienst von Spotify; das geht auch, wenn die Suche nicht verfügbar ist.
+   - später: lokales Medium wählen bzw. hochladen.
 4. Name + Farbe vergeben → speichern. Liegt der neue Token noch auf, spielt er sofort (Bestätigung; Regeln gelten wie beim Auflegen).
 
 **Spotify-Login**
-Zwei getrennte Logins:
+Nur ein Login, auf der Box:
 - **Wiedergabe (go-librespot):** einmalig per Device-Code (`credentials.type: device_auth`). go-librespot zeigt einen Code
   (auch über `GET /auth/code`), der auf spotify.com/pair eingegeben wird. Die App kann diesen Code später direkt anzeigen.
-- **Suche/Metadaten (Web API):** Die App macht OAuth (Authorization Code + PKCE) und übergibt den Refresh Token an die Box.
-  Die Box erneuert Access Tokens danach selbst (PKCE-Refresh braucht kein Client Secret).
+- **Suche und eigene Bibliothek (Web API):** Die Box holt sich den Zugangsschlüssel von go-librespot (`POST /token`)
+  und fragt damit die Spotify Web API. Eine eigene Spotify-Developer-App oder ein Login in der App ist nicht nötig.
+  Fällt das weg (z. B. ändert Spotify etwas), bleibt der Weg über den Link.
 
-Für die eigentliche Wiedergabe braucht die Box die Web API also nicht. Wenn die Web API ausfällt oder ihre Limits erreicht sind,
+Für die eigentliche Wiedergabe braucht die Box die Web API nicht. Wenn die Web API ausfällt oder ihre Limits erreicht sind,
 spielen die Token trotzdem weiter.
+
+**Taster an der Box**
+
+| Taster | kurz | lang (1 s) |
+|---|---|---|
+| Play/Pause | Pause bzw. weiter (nur mit aufgelegtem Token) | Token von vorn starten (Ring leuchtet kurz ganz in der Token-Farbe) |
+| Lauter | lauter (bis zur Grenze) | nächster Titel |
+| Leiser | leiser | Titel zurück |
+| Lauter + Leiser | | Tasten sperren/entsperren |
 
 ## Lokale Medien & Offline-Betrieb
 
@@ -179,7 +191,9 @@ DELETE /api/tokens/{uid}
 POST   /api/learn                  {active: true|false}
 POST   /api/spotify/resolve        {link} → {uri, title, kind, cover_url} (Teilen-Link, Kurzlink oder spotify:-URI)
 GET    /api/spotify/auth-code      Code für spotify.com/pair, solange go-librespot auf die Anmeldung wartet
-POST   /api/player/{toggle|next|prev}
+POST   /api/player/{toggle|next|prev|restart}   restart = aufgelegten Token von vorn
+GET    /api/spotify/search?q=      Suche (Alben, Playlists, Hörbücher, Podcasts) → [{uri, title, kind, subtitle, cover_url, track_count}]
+GET    /api/spotify/library        eigene Playlists und gespeicherte Alben
 POST   /api/player/seek            {position_ms}
 POST   /api/player/volume          {volume} (wird auf die erlaubte Grenze gekappt)
 POST   /api/button                 {name: play_pause|lauter|leiser|lock, press: kurz|lang} (Taster fernbedienen)
@@ -195,8 +209,6 @@ POST   /api/sim/token              {uid|null} Token simulieren (nur mit --fake)
 Noch offen (Entwurf):
 
 ```
-GET    /api/spotify/search?q=      Proxy zur Spotify-Suche
-POST   /api/spotify/auth           Refresh Token von der App übernehmen
 GET    /api/media                  lokale Medien (Name, Titel, Dauer, Cover-URL, Größe)
 POST   /api/media                  neues Medium anlegen {name} → {id}
 POST   /api/media/{id}/upload      Datei hochladen (Chunks, Header Upload-Offset), danach Metadaten lesen

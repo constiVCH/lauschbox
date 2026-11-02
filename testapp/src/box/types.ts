@@ -10,6 +10,8 @@ export type Medium = {
   title: string;
   kind: string;
   kindLabel: string;
+  /** Künstler, Autor oder Besitzer der Playlist */
+  subtitle?: string;
   coverUrl?: string | null;
   /** Platzhalter-Cover der Demo */
   color?: string;
@@ -86,6 +88,8 @@ export type BoxButton = 'minus' | 'play' | 'plus';
 
 export interface BoxApi {
   togglePlay(): void;
+  /** Aufgelegten Token von vorn starten (wie Play lang drücken) */
+  restart(): void;
   skip(dir: 1 | -1): void;
   seek(positionS: number): void;
   setVolume(volume: number): void;
@@ -104,6 +108,10 @@ export interface BoxApi {
   remove?(): void;
   /** Echte Box: Spotify-Link → Inhalt */
   resolveLink?(text: string): Promise<Medium>;
+  /** Echte Box: Spotify durchsuchen (Alben, Playlists, Hörbücher, Podcasts) */
+  search?(query: string): Promise<Medium[]>;
+  /** Echte Box: eigene Playlists und gespeicherte Alben */
+  library?(): Promise<Medium[]>;
   /** Demo: fester Katalog statt Spotify */
   catalog?: Medium[];
   demo?: { setSpeed(speed: 1 | 30): void; setBedtime(on: boolean): void };

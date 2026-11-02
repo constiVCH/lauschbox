@@ -140,6 +140,17 @@ function NowPlaying() {
           <Transport icon={now.playing ? 'pause' : 'play'} label={now.playing ? 'Pause' : 'Abspielen'} onPress={api.togglePlay} big />
           <Transport icon="play-skip-forward" label="Weiter" onPress={() => api.skip(1)} />
         </View>
+        {s.placed === token.uid && (
+          <Button
+            label="Von vorn"
+            icon="refresh"
+            kind="plain"
+            compact
+            onPress={api.restart}
+            style={{ alignSelf: 'center', marginTop: -space.sm }}
+            accessibilityHint="Startet den aufgelegten Token beim ersten Titel. An der Box: Play lange drücken."
+          />
+        )}
 
         <VolumeControl />
       </Card>

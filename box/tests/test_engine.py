@@ -244,3 +244,30 @@ def test_kindermodus_100_prozent_erlaubt_volle_lautstaerke(box):
         await engine.close()
 
     run(go())
+
+
+def test_play_ohne_token_spielt_nichts(box):
+    async def go():
+        engine, player = await box()
+        await engine.token_placed("tok1")
+        await engine.token_removed()
+        assert not player.status.playing
+        await engine.toggle_play()
+        assert not player.status.playing  # zuletzt gehörter Inhalt startet nicht ohne Token
+        await engine.close()
+
+    run(go())
+
+
+def test_play_lang_startet_von_vorn(box):
+    async def go():
+        engine, player = await box()
+        await engine.token_placed("tok1")
+        await player.next()
+        await player.seek(30_000)
+        await engine.button("play_pause", "lang")
+        assert player.status.track_number == 1 and player.position() < 1000
+        assert engine.store.token("tok1").progress.track_number in (None, 1)
+        await engine.close()
+
+    run(go())

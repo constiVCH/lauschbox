@@ -58,6 +58,10 @@ class Player:
     async def auth_code(self) -> dict | None:
         return None
 
+    async def web_token(self) -> str | None:
+        """Zugangsschlüssel für die Spotify Web API (Suche), sofern der Player angemeldet ist."""
+        return None
+
     def position(self) -> int:
         """Aktuelle Position im Titel in ms (zwischen zwei Statusmeldungen hochgerechnet)."""
         return self.status.position_now()
@@ -184,6 +188,17 @@ class SpotifyPlayer(Player):
             async with self._session.get(self.base + "/auth/code") as resp:
                 return await resp.json() if resp.status == 200 else None
         except (aiohttp.ClientError, asyncio.TimeoutError):
+            return None
+
+    async def web_token(self) -> str | None:
+        # go-librespot ist bei Spotify angemeldet und gibt dafür einen Web-API-Schlüssel heraus (POST /token)
+        assert self._session
+        try:
+            async with self._session.post(self.base + "/token") as resp:
+                if resp.status != 200:
+                    return None
+                return (await resp.json()).get("token")
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
             return None
 
 

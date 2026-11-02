@@ -3,7 +3,7 @@ import { baseUrl } from '@/hw/hardware';
 import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice } from './types';
 
 /** Zustand, wie ihn der box-daemon schickt (box/lauschbox/engine.py, snapshot()). */
-type RawMedium = { uri: string; title: string; kind: string; cover_url: string | null };
+type RawMedium = { uri: string; title: string; kind: string; cover_url: string | null; subtitle?: string; track_count?: number | null };
 type RawState = {
   player: {
     available: boolean;
@@ -52,7 +52,9 @@ const medium = (m: RawMedium): Medium => ({
   title: m.title,
   kind: m.kind,
   kindLabel: KIND_LABELS[m.kind] ?? m.kind,
+  subtitle: m.subtitle,
   coverUrl: m.cover_url,
+  trackCount: m.track_count ?? undefined,
 });
 
 function randomUid() {
@@ -248,6 +250,7 @@ export class RemoteBox {
 
   readonly api: BoxApi = {
     togglePlay: () => this.fire('POST', '/api/player/toggle'),
+    restart: () => this.fire('POST', '/api/player/restart'),
     skip: (dir) => this.fire('POST', dir > 0 ? '/api/player/next' : '/api/player/prev'),
     seek: (s) => this.fire('POST', '/api/player/seek', { position_ms: Math.round(s * 1000) }),
     setVolume: (v) => this.fire('POST', '/api/player/volume', { volume: Math.round(v) }),
@@ -294,5 +297,8 @@ export class RemoteBox {
       const m = await this.call<RawMedium>('POST', '/api/spotify/resolve', { link: text });
       return medium(m);
     },
+    search: async (query) =>
+      (await this.call<RawMedium[]>('GET', `/api/spotify/search?q=${encodeURIComponent(query)}`)).map(medium),
+    library: async () => (await this.call<RawMedium[]>('GET', '/api/spotify/library')).map(medium),
   };
 }

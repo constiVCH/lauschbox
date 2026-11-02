@@ -86,6 +86,7 @@ export function demoView(s: BoxState): BoxView {
 
 export const demoApi: BoxApi = {
   togglePlay: demoBox.togglePlay,
+  restart: demoBox.restart,
   skip: demoBox.skip,
   seek: demoBox.seek,
   setVolume: (v) => demoBox.setVolume(v),

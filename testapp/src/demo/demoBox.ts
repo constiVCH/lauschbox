@@ -233,6 +233,21 @@ class DemoBox {
     this.set({ playing: !s.playing });
   };
 
+  /** Aufgelegten Token von vorn starten (Play lang drücken) */
+  restart = () => {
+    const token = this.token();
+    if (!token) return;
+    const s = this.state;
+    if (s.kid.enabled && s.bedtime) {
+      this.flash({ mode: 'denied', color: '#B07CFF', fill: 1 }, 1600);
+      this.notify('Schlafenszeit: Neue Geschichten starten erst morgen früh.');
+      return;
+    }
+    this.set({ playing: true, track: 0, position: 0 });
+    this.flash({ mode: 'playing', color: token.color, fill: 1 }, 900);
+    this.notify(`„${token.name}“ startet von vorn.`);
+  };
+
   skip = (dir: 1 | -1) => {
     const m = this.medium();
     if (!m) return;
