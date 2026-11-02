@@ -47,7 +47,17 @@
    - **Link:** Spotify-Link einfügen (in Spotify: Teilen → Link kopieren). Die Box holt Titel und Cover über den
      öffentlichen oEmbed-Dienst von Spotify; das geht auch, wenn die Suche nicht verfügbar ist.
    - später: lokales Medium wählen bzw. hochladen.
-4. Name + Farbe vergeben → speichern. Liegt der neue Token noch auf, spielt er sofort (Bestätigung; Regeln gelten wie beim Auflegen).
+4. Name + Farbe vergeben, Wiedergabe wählen (der Reihe nach mit Weiterhören oder zufällig) → speichern. Liegt der neue Token noch auf, spielt er sofort (Bestätigung; Regeln gelten wie beim Auflegen).
+
+**Ein Token = ein ganzer Inhalt**
+- Album, Playlist, Hörbuch oder Podcast laufen als Einheit: Weiterhören an Titel und Position, „fertig gehört“ erst
+  nach dem letzten Titel. Am Ende jedes Titels meldet go-librespot kurz „spielt nicht“; das zählt nur beim letzten
+  Titel als Ende (bei unbekannter Titelliste erst, wenn nach ein paar Sekunden kein nächster Titel kommt).
+- Der LED-Ring und die App zeigen den Fortschritt im ganzen Inhalt („Kapitel 3 von 12, insgesamt 34 %“). Die Titelliste
+  holt die Box einmal von go-librespot (`/context/tracks`, braucht `metadata.enabled`) oder über die Web API und merkt
+  sie sich (Playlists einen Tag lang).
+- Pro Token einstellbar: **Zufällige Reihenfolge** (für Musik). Dann startet jedes Auflegen gemischt bei einem
+  zufälligen Titel, ohne Weiterhören; der Ring zeigt den Fortschritt im aktuellen Titel.
 
 **Spotify-Login**
 Nur ein Login, auf der Box:
@@ -192,7 +202,7 @@ Umgesetzt im box-daemon ([box/lauschbox/api.py](../box/lauschbox/api.py)), Port 
 GET    /api/status                 kompletter Zustand (Player, Token, Lautstärke, Regeln, LED, Hinweis, Hardware)
 WS     /api/events                 {"type": "state", "data": <wie /api/status>} bei jeder Änderung
 GET    /api/tokens                 Liste
-PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, medium: {uri, title, kind, cover_url}}
+PUT    /api/tokens/{uid}           Anlegen/Ändern {name, color, shuffle, medium: {uri, title, kind, cover_url}}
 DELETE /api/tokens/{uid}
 POST   /api/learn                  {active: true|false}
 POST   /api/spotify/resolve        {link} → {uri, title, kind, cover_url} (Teilen-Link, Kurzlink oder spotify:-URI)

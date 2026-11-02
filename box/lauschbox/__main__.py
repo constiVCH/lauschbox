@@ -51,7 +51,7 @@ async def run(args, data_dir: Path) -> web.Application:
 
         async def on_token(uid: str | None) -> None:
             if uid:
-                await engine.token_placed(uid)
+                log.info("Token %s → %s", uid, await engine.token_placed(uid))
             else:
                 await engine.token_removed()
 

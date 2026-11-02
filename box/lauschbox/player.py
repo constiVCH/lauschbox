@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import time
 from dataclasses import dataclass, field, replace
 from typing import Callable
@@ -65,6 +66,13 @@ class Player:
 
     async def library(self, kind: str) -> dict | None:
         """Eigene Playlists (kind=playlists) oder gespeicherte Alben (albums). None = kann dieser Player nicht."""
+        return None
+
+    async def set_shuffle(self, on: bool) -> None:
+        """Zufallswiedergabe. Vor play() setzen: dann startet die Wiedergabe auch auf einem zufälligen Titel."""
+
+    async def context_tracks(self, uri: str) -> list[dict] | None:
+        """Titelliste eines Albums/einer Playlist: [{uri, name, duration_ms}]. None = nicht verfügbar."""
         return None
 
     def position(self) -> int:
@@ -211,6 +219,29 @@ class SpotifyPlayer(Player):
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
             return None
 
+    async def set_shuffle(self, on: bool) -> None:
+        await self._post("/player/shuffle_context", {"shuffle_context": bool(on)})
+
+    async def context_tracks(self, uri: str) -> list[dict] | None:
+        # Braucht in go-librespot `metadata: {enabled: true}`; sonst 404. Die Liste wird im Hintergrund aufgebaut,
+        # deshalb kurz nachfragen, bis sie vollständig ist.
+        assert self._session
+        for _ in range(20):
+            try:
+                async with self._session.get(self.base + "/context/tracks", params={"uri": uri}) as resp:
+                    if resp.status != 200:
+                        return None
+                    data = await resp.json()
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+                return None
+            if data.get("ready") and data.get("cached", 0) >= data.get("length", 0):
+                tracks = [i.get("track") for i in data.get("tracks") or []]
+                if not tracks or any(t is None for t in tracks):
+                    return None
+                return [{"uri": t["uri"], "name": t.get("name"), "duration_ms": int(t.get("duration") or 0)} for t in tracks]
+            await asyncio.sleep(1)
+        return None
+
     async def web_token(self) -> str | None:
         # go-librespot ist bei Spotify angemeldet und gibt dafür einen Web-API-Schlüssel heraus (POST /token)
         assert self._session
@@ -232,11 +263,13 @@ class FakePlayer(Player):
 
     TRACKS = 6
     TRACK_MS = 180_000
+    TRACK_GAP_S = 0.3
 
     def __init__(self, speed: float = 1.0):
         self.speed = speed
         self.status = PlayerStatus(available=True, volume=40)
         self._task: asyncio.Task | None = None
+        self.shuffle = False
 
     async def start(self) -> None:
         self._task = asyncio.create_task(self._run())
@@ -280,14 +313,22 @@ class FakePlayer(Player):
             if not s.playing or not s.context_uri:
                 continue
             if self._pos() >= self.TRACK_MS:
+                # Wie go-librespot: am Titelende kurz „spielt nicht“, danach startet der nächste Titel
+                self.status = replace(s, playing=False, position_ms=self.TRACK_MS, at=time.monotonic())
+                self._emit("not_playing")
                 if self._index() + 1 < self.TRACKS:
-                    self._set_track(s.context_uri, self._index() + 1, 0, True, "metadata")
-                else:
-                    self.status = replace(s, playing=False, position_ms=self.TRACK_MS, at=time.monotonic())
-                    self._emit("not_playing")
+                    await asyncio.sleep(self.TRACK_GAP_S)
+                    if self.status.track_uri == s.track_uri:  # niemand hat inzwischen etwas anderes gestartet
+                        self._set_track(s.context_uri, self._index() + 1, 0, True, "playing")
+
+    async def set_shuffle(self, on: bool) -> None:
+        self.shuffle = on
+
+    async def context_tracks(self, uri: str) -> list[dict] | None:
+        return [{"uri": f"{uri}#track{i + 1}", "name": f"Kapitel {i + 1}", "duration_ms": self.TRACK_MS} for i in range(self.TRACKS)]
 
     async def play(self, uri: str, skip_to_uri: str | None = None, position_ms: int = 0) -> None:
-        index = 0
+        index = random.randrange(self.TRACKS) if self.shuffle and not skip_to_uri else 0
         if skip_to_uri and "#track" in skip_to_uri:
             index = max(0, min(self.TRACKS - 1, int(skip_to_uri.rsplit("#track", 1)[1]) - 1))
         self._set_track(uri, index, max(0, position_ms), True, "playing")

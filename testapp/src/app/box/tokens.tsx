@@ -103,10 +103,15 @@ function TokenCard({ token, placed, playing }: { token: Token; placed: boolean; 
               {m.kindLabel} · {m.title}
             </Txt>
           </View>
-          {p.fraction !== undefined ? (
+          {p.fraction !== undefined && (
             <View style={[styles.bar, { backgroundColor: c.fillStrong }]}>
               <View style={[styles.barFill, { width: `${Math.round(p.fraction * 100)}%`, backgroundColor: token.color }]} />
             </View>
+          )}
+          {token.shuffle ? (
+            <Txt variant="footnote" color="tertiary" numberOfLines={1}>
+              Zufällige Reihenfolge
+            </Txt>
           ) : (
             progressText && (
               <Txt variant="footnote" color="tertiary" numberOfLines={1}>

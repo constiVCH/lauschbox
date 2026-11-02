@@ -25,3 +25,23 @@ def test_bibliothek_aus_go_librespot():
     items = library_from_librespot(playlists, albums)
     assert [i["subtitle"] for i in items] == ["eigene", "von Spotify", "Drache Funkel"]
     assert items[0]["track_count"] == 12 and items[2]["cover_url"] == "cover" and items[2]["kind_label"] == "Album"
+
+
+def test_titelliste_ueber_mehrere_seiten(monkeypatch):
+    import asyncio
+
+    import lauschbox.spotify_web as sw
+
+    pages = {
+        "/playlists/abc/tracks": {"items": [{"track": {"uri": "t1", "name": "Kapitel 1", "duration_ms": 1000}}, {"track": None}],
+                                  "next": sw.API + "/playlists/abc/tracks?offset=100"},
+        "/playlists/abc/tracks?offset=100": {"items": [{"track": {"uri": "t2", "name": "Kapitel 2", "duration_ms": 2000}}], "next": None},
+    }
+
+    async def fake_get(session, token, path, params):
+        return pages[path]
+
+    monkeypatch.setattr(sw, "_get", fake_get)
+    tracks = asyncio.run(sw.tracks_web(None, "x", "spotify:playlist:abc"))
+    assert [t["uri"] for t in tracks] == ["t1", "t2"] and tracks[1]["duration_ms"] == 2000
+    assert asyncio.run(sw.tracks_web(None, "x", "spotify:show:abc")) is None  # Podcasts nicht

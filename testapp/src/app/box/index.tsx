@@ -139,6 +139,8 @@ function NowPlaying() {
           </View>
         </View>
 
+        {now.contextDurationS ? <WholeProgress now={now} color={token.color} /> : null}
+
         <View style={styles.transport}>
           <Transport icon="play-skip-back" label="Zurück" onPress={() => api.skip(-1)} />
           <Transport icon={now.playing ? 'pause' : 'play'} label={now.playing ? 'Pause' : 'Abspielen'} onPress={api.togglePlay} big />
@@ -159,6 +161,24 @@ function NowPlaying() {
         <VolumeControl />
       </Card>
     </Section>
+  );
+}
+
+/** Fortschritt im ganzen Hörspiel bzw. in der ganzen Playlist (wie der LED-Ring). */
+function WholeProgress({ now, color }: { now: NonNullable<BoxView['now']>; color: string }) {
+  const c = useColors();
+  const total = now.contextDurationS ?? 0;
+  const done = Math.min(now.contextPositionS ?? 0, total);
+  const frac = total ? done / total : 0;
+  return (
+    <View style={{ gap: 6 }} accessible accessibilityLabel={`Insgesamt ${Math.round(frac * 100)} Prozent gehört, noch ${formatTime(total - done)}`}>
+      <View style={[styles.whole, { backgroundColor: c.fillStrong }]}>
+        <View style={[styles.wholeFill, { width: `${Math.round(frac * 100)}%`, backgroundColor: color }]} />
+      </View>
+      <Txt variant="caption" color="secondary" style={{ fontVariant: ['tabular-nums'] }}>
+        Insgesamt {Math.round(frac * 100)} % · noch {formatTime(total - done)}
+      </Txt>
+    </View>
   );
 }
 
@@ -320,6 +340,8 @@ const styles = StyleSheet.create({
   nowHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   tokenDot: { width: 14, height: 14, borderRadius: 7, alignSelf: 'flex-start', marginTop: 4 },
   times: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2 },
+  whole: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  wholeFill: { height: '100%', borderRadius: 2 },
   transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xl },
   transportBtn: { alignItems: 'center', justifyContent: 'center', borderCurve: 'continuous' },
 });

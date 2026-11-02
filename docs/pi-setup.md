@@ -54,6 +54,8 @@ bitrate: 160
 initial_volume: 40
 volume_steps: 100
 disable_autoplay: true        # Kindermodus: nach dem Album keine Vorschläge
+metadata:
+  enabled: true               # Titellisten für den Gesamtfortschritt (LED-Ring, App); ältere Versionen ignorieren das
 zeroconf_enabled: false
 credentials:
   type: device_auth           # Login per Code auf spotify.com/pair, ohne Browser auf dem Pi

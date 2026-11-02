@@ -63,6 +63,17 @@ def open_pn532(mode: str = "auto"):
     raise RuntimeError("; ".join(errors))
 
 
+def _submit(loop: asyncio.AbstractEventLoop, coro, what: str) -> None:
+    """Coroutine aus einem Hardware-Thread im Event-Loop ausführen. Fehler landen im Log statt still zu verschwinden."""
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+    def done(f) -> None:
+        if not f.cancelled() and f.exception():
+            log.error("%s fehlgeschlagen", what, exc_info=f.exception())
+
+    future.add_done_callback(done)
+
+
 class Part:
     def __init__(self, name: str):
         self.name = name
@@ -92,7 +103,8 @@ class Nfc(Part):
         threading.Thread(target=self._poll, name="nfc", daemon=True).start()
 
     def _emit(self, uid: str | None) -> None:
-        asyncio.run_coroutine_threadsafe(self.on_token(uid), self.loop)
+        log.info("NFC: %s", f"Token {uid} aufgelegt" if uid else "Token abgenommen")
+        _submit(self.loop, self.on_token(uid), f"Token {uid or 'abnehmen'}")
 
     def _poll(self) -> None:
         current: str | None = None
@@ -158,7 +170,8 @@ class Buttons(Part):
         self.detail = "; ".join(failed) if failed else "GPIO " + ", ".join(str(p) for p in BUTTON_PINS.values())
 
     def _emit(self, name: str, press: str) -> None:
-        asyncio.run_coroutine_threadsafe(self.on_press(name, press), self.loop)
+        log.info("Taste %s: %s", name, press)
+        _submit(self.loop, self.on_press(name, press), f"Taste {name}")
 
     def _pressed(self, name: str) -> None:
         self.down[name] = time.monotonic()

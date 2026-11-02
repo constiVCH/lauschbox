@@ -11,7 +11,7 @@ import { catalog, mediumByUri, type Medium } from './catalog';
 
 export type Progress = { track: number; position: number; finished: boolean };
 
-export type Token = { uid: string; name: string; color: string; mediumUri: string; progress: Progress };
+export type Token = { uid: string; name: string; color: string; mediumUri: string; progress: Progress; shuffle?: boolean };
 
 export type { LedMode };
 
@@ -189,7 +189,13 @@ class DemoBox {
       this.notify('Schlafenszeit: Neue Geschichten starten erst morgen früh.', 'info');
       return 'denied';
     }
-    const p = token.progress.finished ? { track: 0, position: 0 } : token.progress;
+    const m = mediumByUri(token.mediumUri);
+    // Zufall: jedes Mal ein zufälliger Titel, kein Weiterhören
+    const p = token.shuffle && m
+      ? { track: Math.floor(Math.random() * m.tracks.length), position: 0 }
+      : token.progress.finished
+        ? { track: 0, position: 0 }
+        : token.progress;
     this.set({
       placed: uid,
       playing: true,

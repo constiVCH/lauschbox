@@ -59,7 +59,7 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
 
     @r.get("/api/tokens")
     async def tokens(request: web.Request) -> web.Response:
-        return web.json_response([token_dict(t) for t in engine.store.tokens()])
+        return web.json_response([token_dict(t, engine.token_fraction(t)) for t in engine.store.tokens()])
 
     @r.put("/api/tokens/{uid}")
     async def put_token(request: web.Request) -> web.Response:
@@ -75,7 +75,8 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
         if not spotify_links.parse(str(m.get("uri", ""))):
             raise web.HTTPBadRequest(text="Inhalt fehlt (Spotify-URI)")
         medium = Medium(uri=m["uri"], title=str(m.get("title") or "Spotify"), kind=str(m.get("kind") or "album"), cover_url=m.get("cover_url"))
-        return web.json_response(token_dict(engine.save_token(uid, name, color, medium)))
+        token = engine.save_token(uid, name, color, medium, shuffle=bool(body.get("shuffle", False)))
+        return web.json_response(token_dict(token, engine.token_fraction(token)))
 
     @r.delete("/api/tokens/{uid}")
     async def delete_token(request: web.Request) -> web.Response:
@@ -283,6 +284,23 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
 
     async def on_startup(app: web.Application) -> None:
         app[HTTP] = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8), headers={"User-Agent": "Lauschbox"})
+
+        async def track_source(uri: str) -> list[dict] | None:
+            # Erst go-librespot (braucht metadata.enabled), sonst die Web API über die eigene Spotify-App
+            tracks = await engine.player.context_tracks(uri)
+            if tracks or app[SIM]:
+                return tracks
+            http = app[HTTP]
+            token, market = (await spot["app"].get(http), spotify_web.APP_MARKET) if spot["app"] else (await engine.player.web_token(), "from_token")
+            if not token:
+                return None
+            try:
+                return await spotify_web.tracks_web(http, token, uri, market)
+            except spotify_web.SpotifyWebError as e:
+                log.info("Titelliste über die Web API nicht verfügbar: %s", e)
+                return None
+
+        engine.track_source = track_source
         pending = {"task": None}
 
         def changed() -> None:

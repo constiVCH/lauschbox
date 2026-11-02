@@ -271,3 +271,90 @@ def test_play_lang_startet_von_vorn(box):
         await engine.close()
 
     run(go())
+
+
+def test_kapitelwechsel_ist_kein_ende(box):
+    """Am Ende von Kapitel 1 meldet der Player kurz „spielt nicht“. Das darf nicht als „fertig gehört“ zählen."""
+
+    async def go():
+        engine, player = await box()
+        await engine.token_placed("tok1")
+        await player.seek(FakePlayer.TRACK_MS - 300)
+        await engine.tick()
+        await asyncio.sleep(1.0)  # Kapitel 1 endet, Kapitel 2 startet
+        assert player.status.playing and player.status.track_number == 2
+        assert not engine.store.token("tok1").progress.finished
+        assert engine.notice is None or "zu Ende" not in engine.notice["text"]
+        await player.seek(20_000)
+        await engine.token_removed()
+        await engine.token_placed("tok1")
+        assert player.status.track_number == 2 and player.position() >= 20_000
+        await engine.close()
+
+    run(go())
+
+
+def test_zufall_mischt_und_normaler_token_schaltet_zufall_ab(box):
+    async def go():
+        engine, player = await box()
+        engine.save_token("mix", "Party", "#FF5FA2", PLAYLIST, shuffle=True)
+        await engine.token_placed("mix")
+        assert player.shuffle is True
+        await engine.token_placed("tok1")  # Hörspiel danach: wieder der Reihe nach
+        assert player.shuffle is False and player.status.track_number == 1
+        await engine.close()
+
+    run(go())
+
+
+def test_gesamtfortschritt_am_ring_und_in_der_liste(box):
+    async def go():
+        engine, player = await box()
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.05)  # Titelliste lädt im Hintergrund
+        await player.next()
+        await player.next()  # Kapitel 3 von 6, Anfang
+        led = engine.led_state()
+        assert abs(led["fill"] - 2 / 6) < 0.01
+        snap = engine.snapshot()["player"]
+        assert snap["track_index"] == 2 and snap["track_count"] == 6
+        await engine.token_removed()
+        t = next(t for t in engine.snapshot()["tokens"] if t["uid"] == "tok1")
+        assert abs(t["progress"]["fraction"] - 2 / 6) < 0.01
+        await engine.close()
+
+    run(go())
+
+
+def test_ende_ohne_titelliste_erst_nach_kurzer_wartezeit(box, monkeypatch):
+    import lauschbox.engine as eng
+
+    monkeypatch.setattr(eng, "END_CONFIRM_S", 0.5)
+
+    async def go():
+        engine, player = await box()
+
+        async def no_tracks(uri):
+            return None
+
+        engine.track_source = no_tracks
+        engine.save_token("neu", "Ohne Liste", "#2EC4B6", Medium(uri="spotify:album:" + "c" * 22, title="Ohne Liste"))
+        await asyncio.sleep(0.05)
+        assert engine.tracks_of("spotify:album:" + "c" * 22) is None
+        await engine.token_placed("neu")
+        await player.seek(FakePlayer.TRACK_MS - 300)
+        await engine.tick()
+        await asyncio.sleep(1.2)  # Kapitelwechsel nach 0,3 s: kein Ende
+        assert player.status.track_number == 2
+        assert not engine.store.token("neu").progress.finished
+        for _ in range(FakePlayer.TRACKS - 2):
+            await player.next()
+        await player.seek(FakePlayer.TRACK_MS - 300)
+        await engine.tick()
+        await asyncio.sleep(0.2)
+        assert not engine.store.token("neu").progress.finished  # noch in der Wartezeit
+        await asyncio.sleep(1.3)  # letzter Titel endet, es kommt nichts mehr
+        assert engine.store.token("neu").progress.finished
+        await engine.close()
+
+    run(go())

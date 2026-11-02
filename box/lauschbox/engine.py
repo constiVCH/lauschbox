@@ -10,7 +10,7 @@ import logging
 import time
 from dataclasses import asdict, fields, replace
 from datetime import datetime
-from typing import Callable
+from typing import Awaitable, Callable
 
 from .player import Player, PlayerError, PlayerStatus
 from .store import KidMode, Medium, Progress, Settings, Store, Token
@@ -29,6 +29,10 @@ LED_COLORS = {
 
 NOTICE_SECONDS = 6
 SAVE_EVERY_S = 10
+# So lange nach „spielt nicht“ am Titelende warten, ob doch noch ein nächster Titel kommt (Titelliste unbekannt)
+END_CONFIRM_S = 4.0
+# Titellisten (für den Gesamtfortschritt) so lange wiederverwenden; Playlists können sich ändern
+TRACKS_MAX_AGE_S = 24 * 3600
 
 
 def _hhmm(value: str) -> int:
@@ -61,6 +65,9 @@ class Engine:
         self._last_save = 0.0
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
+        self._tracks: dict[str, list[dict]] = {}  # Titellisten je Inhalt (URI)
+        # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
+        self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
         player.on_change = self._on_player
 
     # ---------- Lebenszyklus ----------
@@ -184,10 +191,13 @@ class Engine:
                 # Derselbe Token liegt wieder auf und der Player hat seinen Inhalt noch: einfach weiter
                 await self.player.resume()
                 result = "resumed"
-            elif restart:
+            elif restart or token.shuffle:
+                # Zufall: jedes Mal neu gemischt, ab einem zufälligen Titel (kein Weiterhören)
+                await self.player.set_shuffle(token.shuffle)
                 await self.player.play(token.medium.uri)
                 result = "started"
             else:
+                await self.player.set_shuffle(False)  # Zufall bleibt sonst vom vorigen Token an
                 await self.player.play(token.medium.uri, skip_to_uri=p.track_uri, position_ms=p.position_ms)
                 result = "resumed" if p.position_ms or p.track_uri else "started"
         except (PlayerError, OSError, asyncio.TimeoutError) as e:
@@ -198,6 +208,7 @@ class Engine:
             return "error"
         if p.finished:
             self.store.save_progress(token.uid, Progress())
+        asyncio.ensure_future(self._load_tracks(token.medium.uri))
         self._changed()
         return result
 
@@ -342,9 +353,10 @@ class Engine:
         self.learned_uid = None
         self._changed()
 
-    def save_token(self, uid: str, name: str, color: str, medium: Medium) -> Token:
+    def save_token(self, uid: str, name: str, color: str, medium: Medium, shuffle: bool = False) -> Token:
         is_new = self.store.token(uid) is None
-        token = self.store.save_token(uid, name.strip()[:40], color, medium)
+        token = self.store.save_token(uid, name.strip()[:40], color, medium, shuffle)
+        asyncio.ensure_future(self._load_tracks(medium.uri))
         if self._loaded == uid and token.medium.uri != self.player.status.context_uri:
             self._loaded = None
         self.learning = False
@@ -405,11 +417,13 @@ class Engine:
                 elif self.bedtime_active() and status.playing:
                     asyncio.ensure_future(self._pause_with("Schlafenszeit: Der Titel ist zu Ende, die Box macht Pause."))
             if reason in ("not_playing", "stopped") and self._near_end():
-                self._save_progress(finished=True)
-                self._notify(
-                    f"„{token.medium.title}“ ist zu Ende."
-                    + (" Kein Autoplay, die Box bleibt still." if self.kid.enabled and self.kid.no_autoplay else "")
-                )
+                # Am Ende jedes Titels meldet der Player kurz „spielt nicht“. Zu Ende ist erst der letzte Titel.
+                ctx = None if token.shuffle else self._context_progress(token.medium.uri, status.track_uri, 0)
+                if ctx:
+                    if ctx[0] == ctx[1] - 1:
+                        self._finish(token)
+                else:
+                    asyncio.ensure_future(self._confirm_end(token.uid, status.track_uri))
             if status.track_uri:
                 self._last_track = status.track_uri
                 self._last_pos = (status.position_ms, status.duration_ms)
@@ -429,6 +443,58 @@ class Engine:
             # Lautstärke von außen (z. B. Spotify-App) über die Grenze gedreht: zurücksetzen
             asyncio.ensure_future(self.set_volume(self.volume_cap()))
         self._changed()
+
+    def _finish(self, token: Token) -> None:
+        self._save_progress(finished=True)
+        self._notify(
+            f"„{token.medium.title}“ ist zu Ende."
+            + (" Kein Autoplay, die Box bleibt still." if self.kid.enabled and self.kid.no_autoplay else "")
+        )
+
+    async def _confirm_end(self, uid: str, track_uri: str | None) -> None:
+        """Titelliste unbekannt: kurz warten. Kommt kein nächster Titel, war es wirklich das Ende."""
+        await asyncio.sleep(END_CONFIRM_S)
+        s = self.player.status
+        token = self.store.token(uid)
+        if token and self._loaded == uid and not s.playing and s.track_uri == track_uri and self._finished != uid:
+            self._finish(token)
+
+    # ---------- Titellisten (Gesamtfortschritt) ----------
+
+    def tracks_of(self, uri: str) -> list[dict] | None:
+        if uri not in self._tracks:
+            cached = self.store.tracks(uri)
+            if not cached:
+                return None
+            self._tracks[uri] = cached[0]
+        return self._tracks[uri]
+
+    async def _load_tracks(self, uri: str) -> None:
+        cached = self.store.tracks(uri)
+        if cached and time.time() - cached[1] < TRACKS_MAX_AGE_S:
+            self._tracks[uri] = cached[0]
+            return
+        try:
+            tracks = await self.track_source(uri)
+        except Exception as e:  # noqa: BLE001 – ohne Liste geht es auch, nur ohne Gesamtfortschritt
+            log.info("Titelliste für %s nicht verfügbar: %s", uri, e)
+            return
+        if tracks:
+            self.store.save_tracks(uri, tracks)
+            self._tracks[uri] = tracks
+            log.info("Titelliste für %s: %d Titel", uri, len(tracks))
+            self._changed()
+
+    def _context_progress(self, uri: str, track_uri: str | None, position_ms: int) -> tuple[int, int, int, int] | None:
+        """(Index, Anzahl, gehört_ms, gesamt_ms) im ganzen Inhalt, falls die Titelliste bekannt ist."""
+        tracks = self.tracks_of(uri)
+        if not tracks or not track_uri:
+            return None
+        for i, t in enumerate(tracks):
+            if t["uri"] == track_uri:
+                durations = [int(x.get("duration_ms") or 0) for x in tracks]
+                return i, len(tracks), sum(durations[:i]) + position_ms, sum(durations)
+        return None
 
     def _near_end(self) -> bool:
         pos, dur = self._last_pos
@@ -493,12 +559,27 @@ class Engine:
             token = self.token()
             s = self.player.status
             if token and self._loaded == token.uid and s.track_uri:
-                fill = self.player.position() / s.duration_ms if s.duration_ms else 0.0
+                ctx = None if token.shuffle else self._context_progress(token.medium.uri, s.track_uri, self.player.position())
+                if ctx and ctx[3]:
+                    fill = ctx[2] / ctx[3]  # Hörspiel als Ganzes
+                else:
+                    fill = self.player.position() / s.duration_ms if s.duration_ms else 0.0
                 led = {"mode": "playing" if s.playing else "paused", "color": token.color, "fill": round(fill, 3)}
             else:
                 led = {"mode": "idle", "color": "#FFFFFF", "fill": 0.0}
         led["brightness"] = self.settings.night_brightness if self.bedtime_active() else self.settings.led_brightness
         return led
+
+    def token_fraction(self, t: Token) -> float | None:
+        """Wie viel vom ganzen Inhalt gehört ist (0..1), falls die Titelliste bekannt ist."""
+        if t.shuffle:
+            return None
+        if t.progress.finished:
+            return 1.0
+        if not t.progress.track_uri:
+            return 0.0 if self.tracks_of(t.medium.uri) else None
+        ctx = self._context_progress(t.medium.uri, t.progress.track_uri, t.progress.position_ms)
+        return round(ctx[2] / ctx[3], 4) if ctx and ctx[3] else None
 
     def snapshot(self) -> dict:
         s = self.player.status
@@ -508,6 +589,9 @@ class Engine:
             sleep["remaining_s"] = max(0, int(self.sleep["ends_at"] - time.monotonic()))
             sleep["total_s"] = self.sleep["total_s"]
         loaded = self.store.token(self._loaded) if self._loaded else None
+        ctx = None
+        if loaded and loaded.medium.uri == s.context_uri and not loaded.shuffle:
+            ctx = self._context_progress(loaded.medium.uri, s.track_uri, self.player.position())
         return {
             "player": {
                 "available": s.available,
@@ -522,6 +606,10 @@ class Engine:
                 "duration_ms": s.duration_ms,
                 "error": s.error,
                 "username": s.username,
+                "track_index": ctx[0] if ctx else None,
+                "track_count": ctx[1] if ctx else None,
+                "context_position_ms": ctx[2] if ctx else None,
+                "context_duration_ms": ctx[3] if ctx else None,
             },
             "placed": self.placed,
             "placed_known": token is not None,
@@ -535,14 +623,16 @@ class Engine:
             "learned_uid": self.learned_uid,
             "led": self.led_state(),
             "notice": self.notice,
-            "tokens": [token_dict(t) for t in self.store.tokens()],
+            "tokens": [token_dict(t, self.token_fraction(t)) for t in self.store.tokens()],
             "settings": asdict(self.settings),
             "kid": {k: v for k, v in asdict(self.kid).items() if k != "pin"},
         }
 
 
-def token_dict(t: Token) -> dict:
-    return {"uid": t.uid, "name": t.name, "color": t.color, "medium": asdict(t.medium), "progress": asdict(t.progress)}
+def token_dict(t: Token, fraction: float | None = None) -> dict:
+    progress = asdict(t.progress)
+    progress["fraction"] = fraction
+    return {"uid": t.uid, "name": t.name, "color": t.color, "medium": asdict(t.medium), "progress": progress, "shuffle": t.shuffle}
 
 
 def _patch(obj, patch: dict):

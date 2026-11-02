@@ -29,7 +29,15 @@ export type TokenProgress = {
   fraction?: number;
 };
 
-export type Token = { uid: string; name: string; color: string; medium: Medium; progress: TokenProgress };
+export type Token = {
+  uid: string;
+  name: string;
+  color: string;
+  medium: Medium;
+  progress: TokenProgress;
+  /** Zufällige Reihenfolge (Musik); sonst der Reihe nach mit Weiterhören */
+  shuffle: boolean;
+};
 
 export type NowPlaying = {
   trackTitle: string;
@@ -39,6 +47,9 @@ export type NowPlaying = {
   durationS: number;
   playing: boolean;
   coverUrl?: string | null;
+  /** Fortschritt im ganzen Inhalt, falls die Titelliste bekannt ist */
+  contextPositionS?: number;
+  contextDurationS?: number;
 };
 
 export type Notice = { id: number; text: string; tone: 'info' | 'warning' | 'success' };
@@ -110,7 +121,7 @@ export interface BoxApi {
   setSleep(sleep: { kind: 'off' } | { kind: 'minutes'; minutes: number } | { kind: 'episode' }): void;
   startLearn(): void;
   cancelLearn(): void;
-  saveToken(token: { uid: string; name: string; color: string; medium: Medium }): Promise<void>;
+  saveToken(token: { uid: string; name: string; color: string; medium: Medium; shuffle: boolean }): Promise<void>;
   deleteToken(uid: string): Promise<void>;
   dismissNotice(id: number): void;
   verifyPin(pin: string): Promise<boolean>;

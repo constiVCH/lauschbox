@@ -32,6 +32,7 @@ class Token:
     color: str
     medium: Medium
     progress: Progress = field(default_factory=Progress)
+    shuffle: bool = False  # Zufallswiedergabe (für Musik); Hörspiele der Reihe nach mit Weiterhören
 
 
 @dataclass
@@ -80,8 +81,13 @@ class Store:
                 position_ms INTEGER NOT NULL DEFAULT 0, finished INTEGER NOT NULL DEFAULT 0, updated REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS tracks (context_uri TEXT PRIMARY KEY, tracks TEXT NOT NULL, fetched REAL NOT NULL);
             """
         )
+        # Spalten, die später dazugekommen sind
+        columns = {r[1] for r in self.db.execute("PRAGMA table_info(tokens)")}
+        if "shuffle" not in columns:
+            self.db.execute("ALTER TABLE tokens ADD COLUMN shuffle INTEGER NOT NULL DEFAULT 0")
         self.db.commit()
 
     # ---------- Token ----------
@@ -89,7 +95,7 @@ class Store:
     def tokens(self) -> list[Token]:
         rows = self.db.execute(
             """SELECT t.uid, t.name, t.color, t.uri, t.title, t.kind, t.cover_url,
-                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished
+                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.shuffle
                FROM tokens t LEFT JOIN progress p ON p.uid = t.uid ORDER BY t.created"""
         ).fetchall()
         return [self._token(r) for r in rows]
@@ -97,7 +103,7 @@ class Store:
     def token(self, uid: str) -> Token | None:
         r = self.db.execute(
             """SELECT t.uid, t.name, t.color, t.uri, t.title, t.kind, t.cover_url,
-                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished
+                      p.track_uri, p.track_number, p.track_name, p.position_ms, p.finished, t.shuffle
                FROM tokens t LEFT JOIN progress p ON p.uid = t.uid WHERE t.uid = ?""",
             (uid,),
         ).fetchone()
@@ -111,15 +117,16 @@ class Store:
             color=r[2],
             medium=Medium(uri=r[3], title=r[4], kind=r[5], cover_url=r[6]),
             progress=Progress(track_uri=r[7], track_number=r[8], track_name=r[9], position_ms=r[10] or 0, finished=bool(r[11])),
+            shuffle=bool(r[12]),
         )
 
-    def save_token(self, uid: str, name: str, color: str, medium: Medium) -> Token:
+    def save_token(self, uid: str, name: str, color: str, medium: Medium, shuffle: bool = False) -> Token:
         old = self.token(uid)
         self.db.execute(
-            """INSERT INTO tokens (uid, name, color, uri, title, kind, cover_url, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """INSERT INTO tokens (uid, name, color, uri, title, kind, cover_url, created, shuffle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(uid) DO UPDATE SET name=excluded.name, color=excluded.color, uri=excluded.uri,
-                   title=excluded.title, kind=excluded.kind, cover_url=excluded.cover_url""",
-            (uid, name, color, medium.uri, medium.title, medium.kind, medium.cover_url, time.time()),
+                   title=excluded.title, kind=excluded.kind, cover_url=excluded.cover_url, shuffle=excluded.shuffle""",
+            (uid, name, color, medium.uri, medium.title, medium.kind, medium.cover_url, time.time(), int(shuffle)),
         )
         if old and old.medium.uri != medium.uri:
             # Neuer Inhalt: alter Hörstand passt nicht mehr
@@ -166,6 +173,19 @@ class Store:
 
     def save_kid(self, k: KidMode) -> None:
         self._put("kid", asdict(k))
+
+    def tracks(self, context_uri: str) -> tuple[list[dict], float] | None:
+        """Gemerkte Titelliste eines Inhalts und wann sie geholt wurde."""
+        r = self.db.execute("SELECT tracks, fetched FROM tracks WHERE context_uri = ?", (context_uri,)).fetchone()
+        return (json.loads(r[0]), r[1]) if r else None
+
+    def save_tracks(self, context_uri: str, tracks: list[dict]) -> None:
+        self.db.execute(
+            "INSERT INTO tracks (context_uri, tracks, fetched) VALUES (?, ?, ?) "
+            "ON CONFLICT(context_uri) DO UPDATE SET tracks=excluded.tracks, fetched=excluded.fetched",
+            (context_uri, json.dumps(tracks), time.time()),
+        )
+        self.db.commit()
 
     def spotify_app(self) -> dict:
         """Client-ID und -Secret der eigenen Spotify-Entwickler-App (für die Suche), leer wenn nicht eingerichtet."""

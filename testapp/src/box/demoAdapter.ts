@@ -34,8 +34,9 @@ export function demoView(s: BoxState): BoxView {
         trackName: m.tracks[t.progress.track]?.title,
         positionS: t.progress.position,
         finished: t.progress.finished,
-        fraction: t.progress.finished ? 1 : total ? done / total : 0,
+        fraction: t.shuffle ? undefined : t.progress.finished ? 1 : total ? done / total : 0,
       },
+      shuffle: !!t.shuffle,
     };
   });
   const placedToken = s.tokens.find((t) => t.uid === s.placed);
@@ -57,6 +58,10 @@ export function demoView(s: BoxState): BoxView {
             positionS: s.position,
             durationS: track.seconds,
             playing: s.playing,
+            contextPositionS: placedToken?.shuffle
+              ? undefined
+              : medium.tracks.slice(0, s.track).reduce((a, t) => a + t.seconds, 0) + s.position,
+            contextDurationS: placedToken?.shuffle ? undefined : totalSeconds(medium),
           }
         : null,
     playerAvailable: true,
@@ -100,7 +105,7 @@ export const demoApi: BoxApi = {
     demoBox.setSleep(sleep.kind === 'minutes' ? { kind: 'minutes', remaining: sleep.minutes * 60, total: sleep.minutes * 60 } : sleep),
   startLearn: demoBox.startLearn,
   cancelLearn: demoBox.cancelLearn,
-  saveToken: async ({ uid, name, color, medium }) => demoBox.saveToken({ uid, name, color, mediumUri: medium.uri }),
+  saveToken: async ({ uid, name, color, medium, shuffle }) => demoBox.saveToken({ uid, name, color, mediumUri: medium.uri, shuffle }),
   deleteToken: async (uid) => demoBox.deleteToken(uid),
   dismissNotice: demoBox.dismissNotice,
   verifyPin: async (pin) => pin === DEMO_PIN,

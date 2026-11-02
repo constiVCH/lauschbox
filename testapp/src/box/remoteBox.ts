@@ -15,6 +15,10 @@ type RawState = {
     position_ms: number;
     duration_ms: number;
     error: string | null;
+    track_index: number | null;
+    track_count: number | null;
+    context_position_ms: number | null;
+    context_duration_ms: number | null;
   };
   placed: string | null;
   loaded: string | null;
@@ -32,7 +36,8 @@ type RawState = {
     name: string;
     color: string;
     medium: RawMedium;
-    progress: { track_number: number | null; track_name: string | null; position_ms: number; finished: boolean };
+    progress: { track_number: number | null; track_name: string | null; position_ms: number; finished: boolean; fraction: number | null };
+    shuffle: boolean;
   }[];
   kid: {
     enabled: boolean;
@@ -172,7 +177,9 @@ export class RemoteBox {
           trackName: t.progress.track_name,
           positionS: t.progress.position_ms / 1000,
           finished: t.progress.finished,
+          fraction: t.progress.fraction ?? undefined,
         },
+        shuffle: t.shuffle,
       })),
       placed: r.placed,
       loadedUid: r.loaded,
@@ -180,7 +187,11 @@ export class RemoteBox {
         p.track_uri && loaded
           ? {
               trackTitle: p.track_name ?? 'Unbekannter Titel',
-              trackNumber: p.track_number,
+              // Stelle in der Playlist bzw. im Hörspiel, sonst die Titelnummer im Album
+              trackNumber: p.track_index !== null ? p.track_index + 1 : p.track_number,
+              trackCount: p.track_count ?? undefined,
+              contextPositionS: p.context_position_ms !== null ? p.context_position_ms / 1000 : undefined,
+              contextDurationS: p.context_duration_ms !== null ? p.context_duration_ms / 1000 : undefined,
               positionS: p.position_ms / 1000,
               durationS: p.duration_ms / 1000,
               playing: p.playing,
@@ -260,10 +271,11 @@ export class RemoteBox {
     setSleep: (s) => this.fire('POST', '/api/sleep', s.kind === 'minutes' ? { kind: 'minutes', minutes: s.minutes } : { kind: s.kind }),
     startLearn: () => this.fire('POST', '/api/learn', { active: true }),
     cancelLearn: () => this.fire('POST', '/api/learn', { active: false }),
-    saveToken: async ({ uid, name, color, medium: m }) => {
+    saveToken: async ({ uid, name, color, medium: m, shuffle }) => {
       await this.call('PUT', `/api/tokens/${encodeURIComponent(uid)}`, {
         name,
         color,
+        shuffle,
         medium: { uri: m.uri, title: m.title, kind: m.kind, cover_url: m.coverUrl ?? null },
       });
     },

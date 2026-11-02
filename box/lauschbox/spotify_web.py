@@ -156,6 +156,35 @@ def library_from_librespot(playlists: dict, albums: dict) -> list[dict]:
     return results
 
 
+async def tracks_web(session: aiohttp.ClientSession, token: str, uri: str, market: str = "from_token") -> list[dict] | None:
+    """Titelliste (für den Gesamtfortschritt) über die Web API. Podcasts nicht: deren Folgen kommen neueste zuerst."""
+    sid = uri.split(":")[-1]
+    kind = uri.split(":")[1]
+    if kind == "album":
+        path, params, key = f"/albums/{sid}/tracks", {"limit": 50}, None
+    elif kind == "playlist":
+        path, params, key = f"/playlists/{sid}/tracks", {"limit": 100, "fields": "items(track(uri,name,duration_ms)),next"}, "track"
+    elif kind == "audiobook":
+        path, params, key = f"/audiobooks/{sid}/chapters", {"limit": 50, "market": market}, None
+    else:
+        return None
+    tracks: list[dict] = []
+    url: str | None = path
+    while url and len(tracks) < 1000:
+        data = await _get(session, token, url, params) if url == path else await _get_url(session, token, url)
+        for item in data.get("items") or []:
+            t = item.get(key) if key else item
+            if t and t.get("uri"):
+                tracks.append({"uri": t["uri"], "name": t.get("name"), "duration_ms": int(t.get("duration_ms") or 0)})
+        url = data.get("next")
+    return tracks or None
+
+
+async def _get_url(session: aiohttp.ClientSession, token: str, url: str) -> dict:
+    """Folgeseite (Spotify liefert die volle URL in `next`)."""
+    return await _get(session, token, url.replace(API, ""), {})
+
+
 async def display_name(session: aiohttp.ClientSession, token: str, username: str) -> str | None:
     try:
         data = await _get(session, token, f"/users/{username}", {})
