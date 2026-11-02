@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
 BRAND = ROOT / "brand"
-APP = ROOT / "app"
+APP = ROOT / "testapp"
 
 NAVY = (27, 35, 51)
 PLATE = (38, 47, 68)
@@ -171,17 +171,3 @@ if __name__ == "__main__":
     render(1024, rounded=False).save(BRAND / "icon-square-1024.png")
     (APP / "assets").mkdir(exist_ok=True)
     render(512, rounded=True).save(APP / "assets" / "logo.png")
-
-    # Vorhandene Flutter-Icons in gleicher Größe ersetzen.
-    # iOS + maskierbare Web-Icons: randlos (das System rundet selbst), sonst abgerundet.
-    for p in list(APP.glob("android/app/src/main/res/mipmap-*/ic_launcher.png")) + \
-            list(APP.glob("ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png")) + \
-            list(APP.glob("web/icons/*.png")) + [APP / "web" / "favicon.png"]:
-        if not p.exists():
-            continue
-        size = Image.open(p).size[0]
-        square = "ios" in p.parts or "maskable" in p.name
-        img = render(size, rounded=not square, scale=max(4, 4096 // size // 4))
-        if "ios" in p.parts:
-            img = img.convert("RGB")  # App Store verlangt Icons ohne Alpha
-        img.save(p)

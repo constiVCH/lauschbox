@@ -6,8 +6,8 @@
 
 android
 
-Flutter-App für iOS und Android mit **einem gemeinsamen Look** auf beiden Systemen (bewusst keine
-systemabhängige Gestaltung). Grundlage ist Material 3; auf dem iPhone läuft dieselbe Gestaltung.
+Expo-App (React Native) für iOS und Android mit **einem gemeinsamen Look** auf beiden Systemen (bewusst keine
+systemabhängige Gestaltung), gestaltet nach dem Skill `apple-design`.
 
 ## Users
 
@@ -55,7 +55,7 @@ nach Anleitung nach und richten die App selbst ein.
 - Aktueller Stand (2026-11-01): box-daemon und App sind verbunden und am PC im Simulationsmodus durchgetestet;
   am echten Pi laufen Wiedergabe, NFC (über UART), Taster und LEDs. Es fehlen noch: BLE-Einrichtung, Akku-Anbindung,
   lokale Medien.
-- Haupt-App seit 2026-11-01: Expo-App in `testapp/` (die Flutter-App ruht). Verbindet sich mit dem box-daemon
+- Haupt-App seit 2026-11-01: Expo-App in `testapp/` (die erste Flutter-App wurde am 2026-11-02 entfernt). Verbindet sich mit dem box-daemon
   (Token anlernen per Spotify-Link, Wiedergabe, Sleep-Timer, Kindermodus mit PIN), dazu Demo-Box und Hardware-Test.
   Gestaltung nach dem Skill `apple-design` (Federn, 1:1-Gesten, Material, reduzierte Bewegung). Läuft per Expo Go
   auf dem Handy, weil auf dem Entwicklungs-PC weder JDK noch Visual Studio installiert sind.
@@ -75,7 +75,7 @@ nach Anleitung nach und richten die App selbst ein.
 
 ## Evidence on Hand
 
-Keine echten Nutzer, Testimonials, Fotos der Box oder Cover. Der Demo-Katalog (`app/lib/box/demo_catalog.dart`)
+Keine echten Nutzer, Testimonials, Fotos der Box oder Cover. Der Demo-Katalog (`testapp/src/demo/catalog.ts`)
 ist ausgedacht und darf nicht als echter Inhalt dargestellt werden. Spotify-Inhalte und -Marken dürfen nur
 im Rahmen der Spotify-Richtlinien gezeigt werden.
 

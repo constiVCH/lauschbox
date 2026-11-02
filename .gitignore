@@ -9,3 +9,6 @@ __pycache__/
 # box-daemon: Daten im Simulationsmodus, Testcache
 box/data/
 .pytest_cache/
+
+# graphify: lokaler Wissensgraph
+graphify-out/

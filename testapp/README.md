@@ -63,4 +63,4 @@ src/
   theme.ts             Farben, Schrift, Abstände, Federn
 ```
 
-Der Ordner heißt aus historischen Gründen noch `testapp/`; die Flutter-App in `app/` ruht.
+Der Ordner heißt aus historischen Gründen noch `testapp/`.

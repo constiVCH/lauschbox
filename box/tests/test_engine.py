@@ -562,3 +562,48 @@ def test_verstaerker_wartet_auf_den_echten_start(box, monkeypatch):
         await engine.close()
 
     run(go())
+
+
+def test_verstaerker_bleibt_stumm_wenn_der_start_scheitert(box, monkeypatch):
+    import lauschbox.engine as eng
+    from lauschbox.player import PlayerError
+
+    monkeypatch.setattr(eng, "AMP_FALLBACK_S", 0.1)
+
+    async def go():
+        engine, player = await box()
+        amp = FakeAmp(player)
+        engine.amp = amp
+
+        async def broken_play(uri, skip_to_uri=None, position_ms=0):
+            raise PlayerError("go-librespot nicht erreichbar")
+
+        player.play = broken_play
+        assert await engine.token_placed("tok1") == "error"
+        await asyncio.sleep(0.3)  # länger als die Rückfallzeit
+        assert amp.muted  # kein Rauschen im Leerlauf
+        await engine.close()
+
+    run(go())
+
+
+def test_einblenden_startet_erst_mit_dem_verstaerker(box, monkeypatch):
+    import lauschbox.engine as eng
+
+    monkeypatch.setattr(eng, "AMP_ON_DELAY_S", 0.2)
+
+    async def go():
+        engine, player = await box(fade=0.3)
+        amp = FakeAmp(player)
+        engine.amp = amp
+        await engine.set_volume(50)
+        await engine.token_placed("tok1")
+        await asyncio.sleep(0.15)
+        assert amp.muted and player.status.volume == 0  # noch stumm: noch nicht eingeblendet
+        await asyncio.sleep(0.15)
+        assert not amp.muted and player.status.volume < 50  # Verstärker an, Einblenden läuft
+        await asyncio.sleep(0.4)
+        assert player.status.volume == 50
+        await engine.close()
+
+    run(go())

@@ -74,7 +74,6 @@ class Engine:
         self._fade_task: asyncio.Task | None = None  # laufendes Einblenden
         self.amp = None  # Stummschaltung des Verstärkers (hardware.Amp), falls angeschlossen
         self._amp_task: asyncio.Task | None = None
-        self._amp_waiting = False  # gestartet, warte auf „playing“ vom Player
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
         self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
         player.on_change = self._on_player
@@ -220,6 +219,7 @@ class Engine:
                 result = "resumed" if p.position_ms or p.track_uri else "started"
         except (PlayerError, OSError, asyncio.TimeoutError) as e:
             log.warning("Abspielen fehlgeschlagen: %s", e)
+            self._amp_mute()  # bricht auch den Rückfall-Timer ab: sonst rauscht die Box nach 8 s im Leerlauf
             self._loaded = prev_loaded
             self._flash_led("error", 2.0)
             self._notify("Spotify ist gerade nicht erreichbar. Läuft go-librespot und ist die Box online?", "warning")
@@ -319,7 +319,11 @@ class Engine:
             self._amp_mute()
             self._amp_expect_start()
             await self._before_fade()
-            await self.player.resume()
+            try:
+                await self.player.resume()
+            except Exception:
+                self._amp_mute()
+                raise
             self._start_fade()
 
     async def restart(self) -> None:
@@ -351,7 +355,6 @@ class Engine:
         if self._amp_task and not self._amp_task.done():
             self._amp_task.cancel()
         self._amp_task = None
-        self._amp_waiting = False
 
     def _amp_mute(self) -> None:
         self._amp_cancel()
@@ -366,7 +369,6 @@ class Engine:
         if not self.amp:
             return
         self._amp_cancel()
-        self._amp_waiting = True
         self._amp_task = asyncio.ensure_future(self._amp_on_later(AMP_FALLBACK_S))
 
     def _amp_on_after(self, delay: float) -> None:
@@ -375,11 +377,11 @@ class Engine:
 
     async def _amp_on_later(self, delay: float) -> None:
         await asyncio.sleep(delay)
-        self._amp_waiting = False
         try:
             self.amp.unmute()
         except Exception as e:  # noqa: BLE001
             log.warning("Verstärker einschalten: %s", e)
+        self._start_fade()
 
     # ---------- Einblenden ----------
 
@@ -395,6 +397,8 @@ class Engine:
             await self.player.set_volume(0)
 
     def _start_fade(self) -> None:
+        if self.amp and self.amp.muted:
+            return  # erst einblenden, wenn der Verstärker angeht (_amp_on_later), sonst ist es vorbei, bevor man etwas hört
         if self.settings.fade_in_s > 0 and self.volume > 0:
             self._fade_task = asyncio.ensure_future(self._fade_in(self.volume, self.settings.fade_in_s))
 

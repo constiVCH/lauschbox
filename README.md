@@ -3,7 +3,7 @@
 # Lauschbox
 
 Kinder-Audiobox auf Raspberry-Pi-Basis: NFC-Token auflegen → Hörspiel/Musik von Spotify oder von der SD-Karte startet.
-Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt komplett ohne App, lokale Inhalte auch ohne WLAN.
+Konfiguration über eine eigene App (Expo, iOS + Android). Die Box spielt komplett ohne App, lokale Inhalte auch ohne WLAN.
 
 ## Struktur
 
@@ -11,7 +11,6 @@ Konfiguration über eine eigene App (Flutter, iOS + Android). Die Box spielt kom
 |-------------|--------|
 | `box/`      | Software auf dem Pi: box-daemon `box/lauschbox/` (Python, `python -m lauschbox`) + Hardware-Testskripte (`box/spikes/`) |
 | `testapp/`  | **Die App** (Expo): echte Box, Demo-Box und Hardware-Test; läuft per Expo Go auf dem Handy ([testapp/README.md](testapp/README.md)) |
-| `app/`      | Erste Flutter-App, ruht seit 2026-11-01 (die Expo-App hat sie abgelöst) |
 | `brand/`    | Logo (SVG/PNG) und Skript, das daraus alle App-Icons erzeugt |
 | `hardware/` | Teileliste, Pinbelegung, später Schaltplan und Gehäuse (STL) |
 | `docs/`     | Konzept, API-Entwurf, Setup-Anleitungen |
