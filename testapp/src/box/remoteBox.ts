@@ -390,13 +390,14 @@ export class RemoteBox {
       // Ohne die 10-s-Grenze von call(): ein Hörbuch braucht im WLAN der Box auch mal Minuten
       const form = new FormData();
       form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? 'audio/mpeg' } as unknown as Blob);
-      let res: Response;
-      try {
-        res = await fetch(`${this.url}/api/media/${localId(albumUri)}/files`, { method: 'POST', body: form });
-      } catch (e) {
-        throw new Error(`Hochladen von „${file.name}“ abgebrochen (${e instanceof Error ? e.message : String(e)}).`);
-      }
-      if (!res.ok) throw new Error((await res.text()) || `Fehler ${res.status}`);
+      // XMLHttpRequest statt fetch: Expos fetch kann Dateien vom Handy ({uri, name, type}) nicht als Formular senden
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${this.url}/api/media/${localId(albumUri)}/files`);
+        xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(xhr.responseText || `Fehler ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error(`Hochladen von „${file.name}“ abgebrochen. Box nicht erreichbar?`));
+        xhr.send(form);
+      });
     },
     deleteLocalAlbum: async (albumUri) => {
       await this.call('DELETE', `/api/media/${localId(albumUri)}`);
