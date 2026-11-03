@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useBox } from '@/box/BoxContext';
@@ -10,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { Tap } from '@/components/Tap';
 import { Button, Card, Pill, Section, Txt } from '@/components/ui';
 import { formatTime } from '@/format';
+import { cancelTokenRead, nfcSupported, readTokenUid } from '@/nfc';
 import { radius, space, useColors } from '@/theme';
 
 export default function TokensTab() {
@@ -46,18 +48,50 @@ function LearnCard() {
   const { view: s, api } = useBox();
   const known = new Set(s.tokens.map((t) => t.uid));
   const blank = s.sim?.tray.find((uid) => !known.has(uid));
+  const [phoneNfc, setPhoneNfc] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    nfcSupported().then(setPhoneNfc);
+    return cancelTokenRead;
+  }, []);
+
+  // Token ans Handy halten statt auf die Box legen: gleiche UID wie beim Leser der Box
+  const readWithPhone = async () => {
+    setError(null);
+    setReading(true);
+    try {
+      const uid = await readTokenUid();
+      if (!uid) return;
+      if (known.has(uid)) {
+        api.cancelLearn();
+        router.push({ pathname: '/token-edit', params: { uid } });
+      } else {
+        router.push({ pathname: '/token-edit', params: { uid, isNew: '1' } });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReading(false);
+    }
+  };
+
   return (
     <Section title="Neuer Token">
       <Card style={styles.learn}>
         <LedRing mode="learn" color={c.learn} fill={1} size={96} well={c.boxWell} />
         <View style={{ flex: 1, gap: space.sm }}>
-          <Txt variant="headline">Leg einen leeren Token auf die Box.</Txt>
-          <Txt variant="footnote" color="secondary">
-            Der Ring pulsiert blau, bis die Box den Token erkennt. Danach wählst du hier den Inhalt aus.
+          <Txt variant="headline">{reading ? 'Halte den Token an die Rückseite deines Handys.' : 'Leg einen leeren Token auf die Box.'}</Txt>
+          <Txt variant="footnote" color={error ? c.danger : 'secondary'}>
+            {error ??
+              (reading
+                ? 'Meist sitzt die NFC-Antenne in der Mitte oder oben.'
+                : `Der Ring pulsiert blau, bis die Box den Token erkennt.${phoneNfc ? ' Oder lies ihn mit dem Handy.' : ''} Danach wählst du hier den Inhalt aus.`)}
           </Txt>
           <View style={styles.learnActions}>
             {blank && api.place && <Button label="Leeren Token auflegen" compact onPress={() => api.place?.(blank)} />}
-            <Button label="Abbrechen" compact kind="plain" onPress={api.cancelLearn} />
+            {phoneNfc && !reading && <Button label="Mit dem Handy lesen" icon="phone-portrait" compact kind="secondary" onPress={readWithPhone} />}
+            <Button label="Abbrechen" compact kind="plain" onPress={reading ? cancelTokenRead : api.cancelLearn} />
           </View>
         </View>
       </Card>

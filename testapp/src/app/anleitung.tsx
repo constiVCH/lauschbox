@@ -23,7 +23,7 @@ export default function Anleitung() {
 
       <Section title="2. Token anlernen">
         <Card style={{ gap: space.sm }}>
-          <Txt variant="body">Tab „Token“ → „Neuer Token“, dann einen leeren Token auf die Box legen.</Txt>
+          <Txt variant="body">Tab „Token“ → „Neu“, dann einen leeren Token auf die Box legen oder mit „Mit dem Handy lesen“ an die Rückseite des Handys halten.</Txt>
           <Txt variant="body" color="secondary">
             Namen und Farbe wählen, Inhalt suchen oder einen Spotify-Link einfügen (in Spotify: Teilen → Link kopieren).
             Wiedergabe-Art: „Hörspiel“ merkt sich die Stelle im ganzen Hörspiel, „Einzelne Titel“ zählt jeden Titel für sich,
@@ -47,6 +47,7 @@ export default function Anleitung() {
       <Section title="4. Der LED-Ring">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
           <Row first title="Ein wandernder Punkt" subtitle="Bereit, kein Token aufgelegt" icon="ellipse" iconColor="#8A93A6" />
+          <Row title="Ring ganz aus" subtitle="Ruhemodus: Taste drücken oder Token auflegen weckt die Box" icon="ellipse-outline" iconColor="#3A4152" />
           <Row title="Ring in Token-Farbe" subtitle="Spielt; der Ring füllt sich mit dem Fortschritt" icon="ellipse" iconColor="#E8663D" />
           <Row title="Token-Farbe pulsiert" subtitle="Pause" icon="ellipse" iconColor="#E8663D" />
           <Row title="Weiß füllt sich kurz" subtitle="Lautstärke" icon="ellipse" iconColor="#B8BFCC" />

@@ -23,7 +23,7 @@ type RawState = {
   placed: string | null;
   loaded: string | null;
   removal_pending?: boolean;
-  settings: { remove_grace_s?: number; fade_in_s?: number; led_brightness?: number; night_brightness?: number };
+  settings: { remove_grace_s?: number; fade_in_s?: number; led_brightness?: number; night_brightness?: number; standby_min?: number };
   volume: number;
   volume_cap: number;
   locked: boolean;
@@ -264,6 +264,7 @@ export class RemoteBox {
         fadeInS: r.settings?.fade_in_s ?? 1,
         ledBrightness: r.settings?.led_brightness ?? 0.25,
         nightBrightness: r.settings?.night_brightness ?? 0.08,
+        standbyMin: r.settings?.standby_min ?? 10,
       },
       removalPending: !!r.removal_pending,
     };
@@ -336,6 +337,7 @@ export class RemoteBox {
       if (patch.fadeInS !== undefined) body.fade_in_s = patch.fadeInS;
       if (patch.ledBrightness !== undefined) body.led_brightness = patch.ledBrightness;
       if (patch.nightBrightness !== undefined) body.night_brightness = patch.nightBrightness;
+      if (patch.standbyMin !== undefined) body.standby_min = patch.standbyMin;
       await this.call('PUT', '/api/settings', body).catch((e) => this.fail(e));
     },
     verifyPin: async (pin) => (await this.call<{ ok: boolean }>('POST', '/api/kidmode/verify', { pin })).ok,

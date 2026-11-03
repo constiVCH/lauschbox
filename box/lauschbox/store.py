@@ -66,6 +66,8 @@ class Settings:
     remove_grace_s: float = 2.0
     # Beim Start von 0 auf die eingestellte Lautstärke einblenden (0 = aus)
     fade_in_s: float = 1.0
+    # So viele Minuten ohne Wiedergabe und Bedienung, dann Ruhemodus: LED-Ring aus (0 = nie)
+    standby_min: int = 10
 
 
 @dataclass

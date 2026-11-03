@@ -123,6 +123,8 @@ export type BoxSettings = {
   /** Helligkeit des LED-Rings 0..1 (gilt für alle Anzeigen, auch die Lautstärke); nachts der zweite Wert */
   ledBrightness: number;
   nightBrightness: number;
+  /** Minuten ohne Wiedergabe und Bedienung bis zum Ruhemodus (LED-Ring aus), 0 = nie */
+  standbyMin: number;
 };
 
 export type SystemAction = 'restart-spotify' | 'restart-box' | 'reboot' | 'poweroff' | 'spotify-logout' | 'update';

@@ -40,7 +40,8 @@
         {
           "hidden": true
         }
-      ]
+      ],
+      "react-native-nfc-manager"
     ],
     "scheme": "lauschbox",
     "backgroundColor": "#1B2333",

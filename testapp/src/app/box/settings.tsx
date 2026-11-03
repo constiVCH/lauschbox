@@ -201,7 +201,10 @@ function LedSection() {
   const { view, api } = useBox();
   const pct = (v: number) => `${Math.round(v)} %`;
   return (
-    <Section title="LED-Ring" footer="Gilt für alles, was der Ring zeigt: Fortschritt, Lautstärke, Hinweise. Zur Schlafenszeit gilt der zweite Wert.">
+    <Section
+      title="LED-Ring"
+      footer="Gilt für alles, was der Ring zeigt: Fortschritt, Lautstärke, Hinweise. Zur Schlafenszeit gilt der zweite Wert. Ruhemodus: Spielt nichts und bedient niemand die Box, geht der Ring aus. Eine Taste oder ein Token weckt sie sofort."
+    >
       <Card style={{ gap: space.lg }}>
         <SettingSlider
           title="Helligkeit"
@@ -220,6 +223,14 @@ function LedSection() {
           step={2}
           format={pct}
           onEnd={(v) => api.setSettings({ nightBrightness: v / 100 })}
+        />
+        <SettingSlider
+          title="Ruhemodus nach"
+          value={view.settings.standbyMin}
+          max={60}
+          step={5}
+          format={(v) => (v === 0 ? 'Nie' : `${Math.round(v)} min`)}
+          onEnd={(v) => api.setSettings({ standbyMin: Math.round(v) })}
         />
       </Card>
     </Section>

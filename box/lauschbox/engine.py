@@ -74,6 +74,8 @@ class Engine:
         self._tracks: dict[str, list[dict]] = {}  # Titellisten je Inhalt (URI)
         self._pending_removal: asyncio.Task | None = None  # Nachfrist nach dem Abnehmen
         self._fade_task: asyncio.Task | None = None  # laufendes Einblenden
+        self.standby = False  # Ruhemodus: LED-Ring aus, bis jemand die Box bedient
+        self._active_at = time.monotonic()
         self.amp = None  # Stummschaltung des Verstärkers (hardware.Amp), falls angeschlossen
         self._amp_task: asyncio.Task | None = None
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
@@ -138,6 +140,14 @@ class Engine:
     def _clear_flash(self) -> None:
         self._flash_until = 0.0
 
+    def _wake(self) -> None:
+        """Jemand bedient die Box: Ruhemodus beenden und die Wartezeit neu beginnen."""
+        self._active_at = time.monotonic()
+        if self.standby:
+            self.standby = False
+            log.info("Ruhemodus beendet")
+            self._changed()
+
     def _notify(self, text: str, tone: str = "info") -> None:
         self._notice_id += 1
         self.notice = {"id": self._notice_id, "text": text, "tone": tone}
@@ -149,6 +159,7 @@ class Engine:
 
     async def token_placed(self, uid: str) -> str:
         """Ergebnis: started, resumed, learned, known, unknown, ignored, denied, error."""
+        self._wake()
         if uid == self.placed:
             if self._cancel_pending_removal():
                 log.info("Token %s innerhalb der Nachfrist zurück: spielt weiter", uid)
@@ -246,6 +257,7 @@ class Engine:
 
     async def token_removed(self) -> None:
         """Token weg. Spielt er gerade, erst nach der Nachfrist pausieren: kommt er rechtzeitig zurück, läuft es weiter."""
+        self._wake()
         if not self.placed:
             return
         grace = max(0.0, float(self.settings.remove_grace_s))
@@ -302,6 +314,7 @@ class Engine:
     # ---------- Player / Taster ----------
 
     async def toggle_play(self) -> None:
+        self._wake()
         if self.playing:
             self._save_progress()
             self._amp_mute()
@@ -416,6 +429,7 @@ class Engine:
 
     async def set_volume(self, volume: int, from_box: bool = False) -> None:
         self._cancel_fade()  # wer selbst dreht, hat Vorrang vor dem Einblenden
+        self._wake()
         volume = max(0, min(int(volume), self.volume_cap()))
         self.volume = volume
         await self.player.set_volume(volume)
@@ -426,6 +440,7 @@ class Engine:
 
     async def button(self, name: str, press: str) -> None:
         """Hardware-Taster. name: play_pause | lauter | leiser | lock; press: kurz | lang."""
+        self._wake()
         if name == "lock":
             await self.set_lock(not self.locked)
             return
@@ -463,6 +478,7 @@ class Engine:
     # ---------- Anlernen / Verwalten ----------
 
     def start_learn(self) -> None:
+        self._wake()
         self._clear_flash()
         self.learning = True
         self.learned_uid = None
@@ -508,6 +524,8 @@ class Engine:
         self.settings.fade_in_s = max(0.0, min(3.0, self.settings.fade_in_s))
         self.settings.led_brightness = max(0.02, min(1.0, self.settings.led_brightness))
         self.settings.night_brightness = max(0.02, min(1.0, self.settings.night_brightness))
+        self.settings.standby_min = max(0, min(120, self.settings.standby_min))
+        self._wake()
         self.store.save_settings(self.settings)
         self._changed()
         return self.settings
@@ -675,6 +693,16 @@ class Engine:
                 self._last_pos = (self.player.position(), st.duration_ms)
             if now - self._last_save >= SAVE_EVERY_S:
                 self._save_progress()
+            self._active_at = now
+        elif (
+            not self.standby
+            and not self.learning
+            and self.settings.standby_min > 0
+            and now - self._active_at >= self.settings.standby_min * 60
+        ):
+            self.standby = True
+            log.info("Ruhemodus: LED-Ring aus, bis eine Taste gedrückt oder ein Token aufgelegt wird")
+            changed = True
         if self.bedtime_active() and not was_bedtime and self.volume > self.volume_cap():
             await self.set_volume(self.volume_cap())
         if self._flash and now >= self._flash_until:
@@ -693,6 +721,8 @@ class Engine:
     def led_state(self) -> dict:
         if self._flash and time.monotonic() < self._flash_until:
             led = dict(self._flash)
+        elif self.standby:
+            led = {"mode": "off", "color": "#000000", "fill": 0.0}
         elif self.learning:
             led = {"mode": "learn", "color": LED_COLORS["learn"], "fill": 1.0}
         else:
@@ -762,6 +792,7 @@ class Engine:
             "bedtime_active": self.bedtime_active(),
             "sleep": sleep,
             "learning": self.learning,
+            "standby": self.standby,
             "learned_uid": self.learned_uid,
             "led": self.led_state(),
             "notice": self.notice,

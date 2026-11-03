@@ -626,3 +626,28 @@ def test_einblenden_startet_erst_mit_dem_verstaerker(box, monkeypatch):
         await engine.close()
 
     run(go())
+
+
+def test_ruhemodus_nach_wartezeit_und_aufwachen(box):
+    async def go():
+        engine, _ = await box()
+        engine.update_settings({"standby_min": 1})
+        await engine.tick()
+        assert not engine.standby
+        engine._active_at -= 61
+        await engine.tick()
+        assert engine.standby and engine.led_state()["mode"] == "off"
+        await engine.button("leiser", "kurz")
+        assert not engine.standby
+        engine._active_at -= 61
+        await engine.tick()
+        assert engine.standby
+        assert await engine.token_placed("tok1") == "started"
+        assert not engine.standby
+        # Während etwas spielt, schläft die Box nie ein
+        engine._active_at -= 61
+        await engine.tick()
+        assert not engine.standby
+        await engine.close()
+
+    run(go())
