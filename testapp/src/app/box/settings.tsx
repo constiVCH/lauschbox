@@ -159,7 +159,8 @@ function Settings({ pin }: { pin: string }) {
 
       <Section title="Hilfe" footer="Was die Box zuletzt getan hat. Hilfreich, wenn etwas nicht klappt.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-          <Row first title="Log ansehen" icon="document-text" iconColor={c.textTertiary} onPress={() => router.push('/log' as Href)} />
+          <Row first title="Anleitung" icon="book" iconColor={c.learn} onPress={() => router.push('/anleitung' as Href)} />
+          <Row title="Log ansehen" icon="document-text" iconColor={c.textTertiary} onPress={() => router.push('/log' as Href)} />
         </Card>
       </Section>
     </>

@@ -96,6 +96,10 @@ export default function Start() {
           />
         </Card>
 
+        <View style={styles.links}>
+          <Button label="Anleitung" icon="book" kind="plain" compact onPress={() => router.push('/anleitung' as Href)} />
+          <Button label="Impressum" icon="information-circle" kind="plain" compact onPress={() => router.push('/impressum' as Href)} />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -105,6 +109,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: space.lg, gap: space.lg, width: '100%', maxWidth: 560, alignSelf: 'center' },
   hero: { alignItems: 'center', gap: space.sm, marginBottom: space.lg },
   logo: { width: 112, height: 112, marginBottom: space.sm },
+  links: { flexDirection: 'row', justifyContent: 'center', gap: space.lg },
   choiceHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   choiceIcon: { width: 44, height: 44, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   input: { minHeight: 48, borderRadius: radius.sm + 2, borderCurve: 'continuous', paddingHorizontal: space.md },

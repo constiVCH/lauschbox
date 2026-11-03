@@ -22,3 +22,16 @@ def test_falsche_pin_wird_abgelehnt(tmp_path):
             assert resp.status == 200 and engine.kid.max_volume == 80
 
     asyncio.run(go())
+
+
+def test_events_antwortet_auf_ping(tmp_path):
+    async def go():
+        engine = Engine(Store(tmp_path / "test.db"), FakePlayer())
+        async with TestClient(TestServer(build_app(engine))) as client:
+            ws = await client.ws_connect("/api/events")
+            assert (await ws.receive_json())["type"] == "state"
+            await ws.send_str("ping")
+            assert (await ws.receive_json()) == {"type": "pong"}
+            await ws.close()
+
+    asyncio.run(go())

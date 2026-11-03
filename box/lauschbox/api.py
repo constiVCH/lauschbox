@@ -54,6 +54,9 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             async for msg in ws:
                 if msg.type == WSMsgType.ERROR:
                     break
+                if msg.type == WSMsgType.TEXT and msg.data == "ping":
+                    # Die App merkt so, ob die Box noch da ist (WebSocket-Pings sieht sie nicht)
+                    await ws.send_str('{"type": "pong"}')
         finally:
             request.app[CLIENTS].discard(ws)
         return ws
@@ -131,7 +134,7 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             if not spot["app"] and e.status in (401, 403, 429):
                 raise web.HTTPBadGateway(
                     text="Spotify lässt die Suche über die Anmeldung der Box nicht zu. Richte die Suche einmal ein: "
-                    "Tab „Box“ → Spotify → „Suche einrichten“. Bis dahin geht „Meine“ oder ein Link."
+                    "Tab „Einstellungen“ → Spotify → „Suche einrichten“. Bis dahin geht „Meine“ oder ein Link."
                 ) from e
             raise web.HTTPBadGateway(text=str(e)) from e
 

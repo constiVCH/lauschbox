@@ -8,6 +8,8 @@ zeroconf>=0.130
 adafruit-circuitpython-pn532
 pyserial          # PN532 über UART
 adafruit-circuitpython-neopixel-spi
+# Blinka (LED-Ring) verweigert das ältere gpiod aus den Systempaketen: passende Version in die Umgebung holen
+gpiod>=2.2.2,<3
 
 # Tests (am PC)
 pytest

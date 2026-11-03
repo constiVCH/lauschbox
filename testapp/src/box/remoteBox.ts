@@ -86,6 +86,10 @@ export class RemoteBox {
   private retry: ReturnType<typeof setTimeout> | null = null;
   private failures = 0;
   private closed = false;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
+  private lastSeen = 0;
+  /** Ältere Box-Software antwortet nicht auf „ping“; dann nur auf das Schließen der Verbindung verlassen */
+  private answersPing = false;
 
   constructor(host: string) {
     this.url = baseUrl(host);
@@ -107,6 +111,7 @@ export class RemoteBox {
   close() {
     this.closed = true;
     if (this.retry) clearTimeout(this.retry);
+    if (this.watchdog) clearInterval(this.watchdog);
     this.ws?.close();
     this.ws = null;
   }
@@ -130,14 +135,18 @@ export class RemoteBox {
     const ws = new WebSocket(this.url.replace(/^http/, 'ws') + '/api/events');
     this.ws = ws;
     ws.onopen = () => {
+      this.lastSeen = Date.now();
+      this.startWatchdog(ws);
       this.failures = 0;
       this.connection = 'online';
       this.connectionError = null;
       this.changed();
     };
     ws.onmessage = (msg) => {
+      this.lastSeen = Date.now();
       try {
         const data = JSON.parse(String(msg.data));
+        if (data.type === 'pong') this.answersPing = true;
         if (data.type === 'state') {
           this.raw = data.data as RawState;
           this.changed();
@@ -149,13 +158,38 @@ export class RemoteBox {
     ws.onerror = () => {
       this.connectionError = `Keine Verbindung zu ${this.url}`;
     };
-    ws.onclose = () => {
-      if (this.closed || this.ws !== ws) return;
-      this.connection = 'offline';
-      this.changed();
-      this.failures += 1;
-      this.retry = setTimeout(() => this.connect(), Math.min(8000, 1000 * 2 ** (this.failures - 1)));
-    };
+    ws.onclose = () => this.lost(ws);
+  }
+
+  /** Verbindung weg (geschlossen oder stumm): offline anzeigen und neu verbinden. */
+  private lost(ws: WebSocket) {
+    if (this.closed || this.ws !== ws) return;
+    this.ws = null;
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.connection = 'offline';
+    this.changed();
+    this.failures += 1;
+    this.retry = setTimeout(() => this.connect(), Math.min(8000, 1000 * 2 ** (this.failures - 1)));
+  }
+
+  /**
+   * Startet die Box neu oder fällt das WLAN weg, meldet Android das Ende der Verbindung oft erst nach Minuten.
+   * Deshalb alle 3 s anfragen; kommt 7 s lang nichts zurück, gilt die Box als weg.
+   */
+  private startWatchdog(ws: WebSocket) {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (this.answersPing && Date.now() - this.lastSeen > 7000) {
+        this.lost(ws);
+        ws.close();
+        return;
+      }
+      try {
+        ws.send('ping');
+      } catch {
+        // schließt gerade; lost() kommt über onclose
+      }
+    }, 3000);
   }
 
   private toView(r: RawState): BoxView {
