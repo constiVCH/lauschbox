@@ -64,6 +64,9 @@ const medium = (m: RawMedium): Medium => ({
   trackCount: m.track_count ?? undefined,
 });
 
+/** local:<id> → <id> */
+const localId = (uri: string) => encodeURIComponent(uri.replace(/^local:/, ''));
+
 function randomUid() {
   return 'sim' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
 }
@@ -365,6 +368,26 @@ export class RemoteBox {
     search: async (query) =>
       (await this.call<RawMedium[]>('GET', `/api/spotify/search?q=${encodeURIComponent(query)}`)).map(medium),
     library: async () => (await this.call<RawMedium[]>('GET', '/api/spotify/library')).map(medium),
+    localMedia: async () => {
+      const r = await this.call<{ albums: RawMedium[]; free_bytes: number }>('GET', '/api/media');
+      return { albums: r.albums.map(medium), freeBytes: r.free_bytes };
+    },
+    createLocalAlbum: async (title) => (await this.call<{ uri: string }>('POST', '/api/media', { title })).uri,
+    uploadLocalFile: async (albumUri, file) => {
+      // Ohne die 10-s-Grenze von call(): ein Hörbuch braucht im WLAN der Box auch mal Minuten
+      const form = new FormData();
+      form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? 'audio/mpeg' } as unknown as Blob);
+      let res: Response;
+      try {
+        res = await fetch(`${this.url}/api/media/${localId(albumUri)}/files`, { method: 'POST', body: form });
+      } catch {
+        throw new Error('Box nicht erreichbar. Gleiches WLAN?');
+      }
+      if (!res.ok) throw new Error((await res.text()) || `Fehler ${res.status}`);
+    },
+    deleteLocalAlbum: async (albumUri) => {
+      await this.call('DELETE', `/api/media/${localId(albumUri)}`);
+    },
     spotifyAccount: async () => {
       const a = await this.call<{
         available: boolean;

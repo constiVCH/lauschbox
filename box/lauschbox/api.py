@@ -14,7 +14,9 @@ import time
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import __version__, spotify_links, spotify_web, system
+from pathlib import Path
+
+from . import __version__, media, spotify_links, spotify_web, system
 from .engine import Engine, token_dict
 from .store import Medium
 
@@ -25,11 +27,13 @@ SIM = web.AppKey("sim", bool)
 HTTP = web.AppKey("http", aiohttp.ClientSession)
 HW = web.AppKey("hw", dict)
 MEMLOG = web.AppKey("memlog", object)
+MEDIA = web.AppKey("media", Path)
 CLIENTS = web.AppKey("clients", set)
 
 
-def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = None, memory_log=None) -> web.Application:
+def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = None, memory_log=None, media_dir: Path | None = None) -> web.Application:
     app = web.Application(middlewares=[cors, errors])
+    app[MEDIA] = media_dir or Path("data/media")
     app[MEMLOG] = memory_log
     app[ENGINE] = engine
     app[SIM] = simulate
@@ -78,7 +82,11 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             raise web.HTTPBadRequest(text="Name fehlt")
         if not (color.startswith("#") and len(color) == 7):
             raise web.HTTPBadRequest(text="Farbe als #rrggbb")
-        if not spotify_links.parse(str(m.get("uri", ""))):
+        uri = str(m.get("uri", ""))
+        if media.album_of(uri):
+            if not media.tracks(request.app[MEDIA], media.album_of(uri)):
+                raise web.HTTPBadRequest(text="In diesem Album liegen noch keine Dateien")
+        elif not spotify_links.parse(uri):
             raise web.HTTPBadRequest(text="Inhalt fehlt (Spotify-URI)")
         medium = Medium(uri=m["uri"], title=str(m.get("title") or "Spotify"), kind=str(m.get("kind") or "album"), cover_url=m.get("cover_url"))
         mode = body.get("mode") or ("zufall" if body.get("shuffle") else None)  # „shuffle“: ältere App-Version
@@ -94,6 +102,56 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
     async def learn(request: web.Request) -> web.Response:
         body = await request.json()
         engine.start_learn() if body.get("active", True) else engine.cancel_learn()
+        return web.json_response({"ok": True})
+
+    # ---------- Eigene Dateien (auf der SD-Karte) ----------
+
+    @r.get("/api/media")
+    async def media_list(request: web.Request) -> web.Response:
+        root = request.app[MEDIA]
+        return web.json_response({"albums": media.albums(root), "free_bytes": media.free_bytes(root)})
+
+    @r.post("/api/media")
+    async def media_create(request: web.Request) -> web.Response:
+        try:
+            album_id = media.create(request.app[MEDIA], str((await request.json()).get("title", "")))
+        except media.MediaError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
+        return web.json_response({"uri": media.PREFIX + album_id})
+
+    @r.post("/api/media/{id}/files")
+    async def media_upload(request: web.Request) -> web.Response:
+        """Eine Datei je Anfrage (multipart, Feld „file“), wird gestreamt: auch große Hörbücher passen nicht in den Speicher."""
+        root = request.app[MEDIA]
+        try:
+            folder = media.album_dir(root, request.match_info["id"])
+            if not folder.is_dir():
+                raise media.MediaError("Album gibt es nicht (mehr)")
+            reader = await request.multipart()
+            part = await reader.next()
+            if part is None or part.name != "file":
+                raise media.MediaError("Datei fehlt")
+            name = media.safe_name(part.filename or "")
+        except media.MediaError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
+        if request.content_length and request.content_length > media.free_bytes(root):
+            raise web.HTTPInsufficientStorage(text="Auf der SD-Karte ist nicht genug Platz.")
+        tmp = folder / f".{name}.part"
+        try:
+            with tmp.open("wb") as f:
+                while chunk := await part.read_chunk(256 * 1024):
+                    f.write(chunk)
+            tmp.replace(folder / name)
+        finally:
+            tmp.unlink(missing_ok=True)  # abgebrochener Upload hinterlässt nichts
+        return web.json_response({"ok": True, "name": name})
+
+    @r.delete("/api/media/{id}")
+    async def media_delete(request: web.Request) -> web.Response:
+        try:
+            media.delete(request.app[MEDIA], request.match_info["id"])
+        except media.MediaError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
         return web.json_response({"ok": True})
 
     @r.post("/api/spotify/resolve")
@@ -172,7 +230,7 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
     @r.get("/api/spotify/account")
     async def account(request: web.Request) -> web.Response:
         """Wer ist auf der Box bei Spotify angemeldet, und ist die Suche eingerichtet?"""
-        status = engine.player.status
+        status = getattr(engine.player, "spotify", engine.player).status  # auch während eigene Dateien laufen
         username = status.username
         name = None
         if username and not request.app[SIM]:
@@ -361,7 +419,7 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
         async def track_source(uri: str) -> list[dict] | None:
             # Erst go-librespot (braucht metadata.enabled), sonst die Web API über die eigene Spotify-App
             tracks = await engine.player.context_tracks(uri)
-            if tracks or app[SIM]:
+            if tracks or app[SIM] or media.album_of(uri):
                 return tracks
             http = app[HTTP]
             token, market = (await spot["app"].get(http), spotify_web.APP_MARKET) if spot["app"] else (await engine.player.web_token(), "from_token")

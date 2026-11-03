@@ -16,7 +16,7 @@ from aiohttp import web
 from .api import build_app
 from .system import MemoryLog
 from .engine import Engine
-from .player import FakePlayer, SpotifyPlayer
+from .player import FakePlayer, LocalPlayer, MixPlayer, SpotifyPlayer
 from .store import Store
 
 log = logging.getLogger("lauschbox")
@@ -44,7 +44,11 @@ def main() -> None:
 
 async def run(args, data_dir: Path) -> web.Application:
     store = Store(data_dir / "lauschbox.db")
-    player = FakePlayer(speed=args.speed) if args.fake else SpotifyPlayer(args.librespot)
+    media_dir = data_dir / "media"
+    if args.fake:
+        player = FakePlayer(speed=args.speed)
+    else:
+        player = MixPlayer(SpotifyPlayer(args.librespot), LocalPlayer(media_dir, _librespot_audio_device()))
     engine = Engine(store, player)
     hardware: dict = {}
 
@@ -69,7 +73,7 @@ async def run(args, data_dir: Path) -> web.Application:
         hardware = {"nfc": nfc, "buttons": buttons, "leds": ring, "amp": amp}
         engine.amp = amp
 
-    app = build_app(engine, simulate=args.fake, hardware=hardware, memory_log=args.memory_log)
+    app = build_app(engine, simulate=args.fake, hardware=hardware, memory_log=args.memory_log, media_dir=media_dir)
     extras: dict = {}
 
     async def startup(app: web.Application) -> None:
@@ -135,6 +139,17 @@ async def _announce(port: int):
     except Exception as e:  # noqa: BLE001
         log.warning("mDNS fehlgeschlagen: %s", e)
         return None
+
+
+def _librespot_audio_device() -> str:
+    """Eigene Dateien über denselben Ausgang wie Spotify (audio_device in der go-librespot-Konfiguration)."""
+    try:
+        for line in (Path.home() / ".config/go-librespot/config.yml").read_text().splitlines():
+            if line.startswith("audio_device:"):
+                return line.split(":", 1)[1].strip().strip("'\"") or "auto"
+    except OSError:
+        pass
+    return "auto"
 
 
 def _local_ip() -> str:

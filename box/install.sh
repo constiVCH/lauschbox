@@ -20,7 +20,7 @@ fi
 
 step "Pakete"
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv python3-dev python3-gpiozero python3-lgpio swig liblgpio-dev i2c-tools git curl
+sudo apt-get install -y -qq python3-venv python3-dev python3-gpiozero python3-lgpio swig liblgpio-dev i2c-tools git curl mpv
 
 step "Schnittstellen (I2C, SPI, serielle Schnittstelle für den NFC-Leser)"
 sudo raspi-config nonint do_i2c 0 || true

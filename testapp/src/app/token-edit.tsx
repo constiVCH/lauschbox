@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
@@ -177,9 +178,13 @@ function TokenEdit() {
 /** Echte Box: Inhalt per Spotify-Suche, aus den eigenen Playlists/Alben oder per Link wählen. */
 function SpotifyPicker({ api, medium, onPick, error }: { api: BoxApi; medium: Medium | null; onPick: (m: Medium) => void; error: string | null }) {
   const c = useColors();
-  const [mode, setMode] = useState<'search' | 'library' | 'link'>(api.search ? 'search' : 'link');
+  const [mode, setMode] = useState<'search' | 'library' | 'link' | 'local'>(
+    medium?.uri.startsWith('local:') ? 'local' : api.search ? 'search' : 'link',
+  );
   const footer =
-    mode === 'link'
+    mode === 'local'
+      ? 'Eigene Dateien (mp3, m4a, ogg, flac, wav) liegen auf der SD-Karte der Box und spielen auch ohne Internet.'
+      : mode === 'link'
       ? 'In der Spotify-App beim Album, Hörbuch oder der Playlist: Teilen → Link kopieren. Dann hier einfügen.'
       : mode === 'library'
         ? 'Deine Playlists und gespeicherten Alben aus dem Spotify-Konto der Box.'
@@ -196,12 +201,14 @@ function SpotifyPicker({ api, medium, onPick, error }: { api: BoxApi; medium: Me
             { value: 'search', label: 'Suchen' },
             { value: 'library', label: 'Meine' },
             { value: 'link', label: 'Link' },
+            ...(api.localMedia ? [{ value: 'local' as const, label: 'Dateien' }] : []),
           ]}
         />
       )}
       {mode === 'search' && <SearchResults api={api} selected={medium?.uri} onPick={onPick} />}
       {mode === 'library' && <LibraryResults api={api} selected={medium?.uri} onPick={onPick} />}
       {mode === 'link' && <LinkInput api={api} hasMedium={!!medium} onPick={onPick} />}
+      {mode === 'local' && <LocalFiles api={api} selected={medium?.uri} onPick={onPick} />}
       {error && (
         <Txt variant="footnote" color={c.danger}>
           {error}
@@ -364,6 +371,123 @@ function MediumList({ items, selected, onPick, empty }: { items: Medium[]; selec
     </Card>
   );
 }
+
+/** Eigene Dateien: vorhandenes Album wählen oder Dateien vom Handy als neues Album auf die Box laden. */
+function LocalFiles({ api, selected, onPick }: { api: BoxApi; selected?: string; onPick: (m: Medium) => void }) {
+  const c = useColors();
+  const [data, setData] = useState<{ albums: Medium[]; freeBytes: number } | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      setData(await api.localMedia!());
+      setFailure(null);
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : String(e));
+    }
+  };
+  useEffect(() => {
+    let alive = true;
+    api.localMedia?.().then(
+      (found) => alive && setData(found),
+      (e: Error) => alive && setFailure(e.message),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api]);
+
+  const upload = async () => {
+    const picked = await DocumentPicker.getDocumentAsync({ type: 'audio/*', multiple: true });
+    if (picked.canceled || picked.assets.length === 0) return;
+    const files = [...picked.assets].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
+    const size = files.reduce((sum, f) => sum + (f.size ?? 0), 0);
+    if (data && size > data.freeBytes) {
+      setFailure(`Zu groß: ${gb(size)} ausgewählt, auf der Box sind noch ${gb(data.freeBytes)} frei.`);
+      return;
+    }
+    setFailure(null);
+    let uri: string | null = null;
+    try {
+      uri = await api.createLocalAlbum!(title.trim() || files[0].name.replace(/\.[^.]+$/, ''));
+      for (const [i, f] of files.entries()) {
+        setProgress(`Lädt ${i + 1} von ${files.length}: ${f.name}`);
+        await api.uploadLocalFile!(uri, { uri: f.uri, name: f.name, mimeType: f.mimeType });
+      }
+      setTitle('');
+      const fresh = await api.localMedia!();
+      setData(fresh);
+      const album = fresh.albums.find((a) => a.uri === uri);
+      if (album) onPick(album);
+    } catch (e) {
+      setFailure(`${e instanceof Error ? e.message : String(e)} Bereits hochgeladene Dateien bleiben im Album.`);
+      load();
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  const remove = (album: Medium) => {
+    const doIt = async () => {
+      try {
+        await api.deleteLocalAlbum!(album.uri);
+        load();
+      } catch (e) {
+        setFailure(e instanceof Error ? e.message : String(e));
+      }
+    };
+    const msg = `„${album.title}“ wird mit allen Dateien von der Box gelöscht. Token, die es abspielen, bleiben dann still.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) doIt();
+    } else {
+      Alert.alert('Album löschen?', msg, [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Löschen', style: 'destructive', onPress: doIt },
+      ]);
+    }
+  };
+
+  if (!data && !failure) return <ActivityIndicator color={c.textSecondary} style={{ marginVertical: space.lg }} />;
+  const albums = data?.albums.filter((a) => a.trackCount) ?? [];
+  const chosen = albums.find((a) => a.uri === selected);
+  return (
+    <>
+      {data && <MediumList items={albums} selected={selected} onPick={onPick} empty="Noch keine eigenen Dateien auf der Box." />}
+      {chosen && (
+        <Button label={`„${chosen.title}“ von der Box löschen`} kind="destructive" compact onPress={() => remove(chosen)} disabled={!!progress} />
+      )}
+      <View style={[styles.search, { backgroundColor: c.surface }]}>
+        <Ionicons name="folder-open-outline" size={18} color={c.textTertiary} />
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Name des neuen Albums (optional)"
+          placeholderTextColor={c.textTertiary}
+          maxLength={80}
+          returnKeyType="done"
+          accessibilityLabel="Name des neuen Albums"
+          style={[type.body, { flex: 1, color: c.text, paddingVertical: space.md }]}
+        />
+        {progress && <ActivityIndicator color={c.textSecondary} />}
+      </View>
+      <Button label={progress ? 'Lädt hoch …' : 'Dateien vom Handy hochladen'} icon="cloud-upload-outline" kind="secondary" onPress={upload} disabled={!!progress} />
+      {(progress || data) && (
+        <Txt variant="footnote" color="secondary">
+          {progress ?? `Noch ${gb(data!.freeBytes)} frei auf der Box. Mehrere Dateien auswählen: Sie spielen in der Reihenfolge der Dateinamen.`}
+        </Txt>
+      )}
+      {failure && (
+        <Txt variant="footnote" color={c.danger}>
+          {failure}
+        </Txt>
+      )}
+    </>
+  );
+}
+
+const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1).replace('.', ',')} GB`;
 
 function LinkInput({ api, hasMedium, onPick }: { api: BoxApi; hasMedium: boolean; onPick: (m: Medium) => void }) {
   const c = useColors();

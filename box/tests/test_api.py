@@ -1,6 +1,8 @@
 """Eltern-PIN schützt Kindermodus und Systemaktionen (am PC: cd box && python -m pytest)."""
 import asyncio
 
+import aiohttp
+
 from aiohttp.test_utils import TestClient, TestServer
 
 from lauschbox.api import build_app
@@ -33,5 +35,37 @@ def test_events_antwortet_auf_ping(tmp_path):
             await ws.send_str("ping")
             assert (await ws.receive_json()) == {"type": "pong"}
             await ws.close()
+
+    asyncio.run(go())
+
+
+def test_eigene_dateien_hochladen_und_zuweisen(tmp_path):
+    async def go():
+        engine = Engine(Store(tmp_path / "test.db"), FakePlayer())
+        root = tmp_path / "media"
+        async with TestClient(TestServer(build_app(engine, media_dir=root))) as client:
+            uri = (await (await client.post("/api/media", json={"title": "Urlaub"})).json())["uri"]
+            album_id = uri.split(":", 1)[1]
+            token = {"name": "Urlaub", "color": "#FF8A3D", "medium": {"uri": uri, "title": "Urlaub"}}
+            assert (await client.put("/api/tokens/t1", json=token)).status == 400  # noch leer
+
+            def form(name: str) -> aiohttp.FormData:
+                data = aiohttp.FormData()
+                data.add_field("file", b"ID3 fake", filename=name)
+                return data
+
+            assert (await client.post(f"/api/media/{album_id}/files", data=form("01 Anfang.mp3"))).status == 200
+            # Pfade aus dem Dateinamen fallen weg, Nicht-Audio wird abgelehnt
+            assert (await client.post(f"/api/media/{album_id}/files", data=form("../../evil.mp3"))).status == 200
+            assert (await client.post(f"/api/media/{album_id}/files", data=form("notiz.txt"))).status == 400
+            assert (await client.post("/api/media/..%2F..%2Fetc/files", data=form("x.mp3"))).status in (400, 404)
+            assert sorted(p.name for p in (root / album_id).iterdir()) == ["01 Anfang.mp3", "evil.mp3", "title.txt"]
+            assert not (tmp_path / "evil.mp3").exists()
+
+            listing = await (await client.get("/api/media")).json()
+            assert listing["albums"][0]["title"] == "Urlaub" and listing["albums"][0]["track_count"] == 2
+            assert (await client.put("/api/tokens/t1", json=token)).status == 200
+            assert (await client.delete(f"/api/media/{album_id}")).status == 200
+            assert not (root / album_id).exists()
 
     asyncio.run(go())

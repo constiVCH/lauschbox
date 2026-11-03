@@ -1,13 +1,19 @@
-"""Wiedergabe. SpotifyPlayer spricht mit go-librespot (localhost:3678), FakePlayer simuliert für Tests am PC."""
+"""Wiedergabe. SpotifyPlayer spricht mit go-librespot (localhost:3678), LocalPlayer spielt eigene Dateien mit mpv,
+MixPlayer wählt je nach URI. FakePlayer simuliert für Tests am PC."""
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import os
 import random
+import shutil
 import time
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Callable
+
+from . import media
 
 import aiohttp
 
@@ -256,6 +262,273 @@ class SpotifyPlayer(Player):
 
 class PlayerError(Exception):
     pass
+
+
+class LocalPlayer(Player):
+    """Eigene Dateien (media.py) mit mpv über dessen JSON-Schnittstelle (Unix-Socket).
+
+    Pause hält mpv nicht an, sondern stoppt und merkt sich die Stelle: Nur so gibt mpv den Verstärker frei und
+    go-librespot kann ihn wieder öffnen (plughw verträgt nur ein Programm gleichzeitig).
+    """
+
+    def __init__(self, root: Path, audio_device: str = "auto"):
+        self.root = root
+        self.audio_device = audio_device
+        found = bool(shutil.which("mpv"))
+        self.status = PlayerStatus(available=found, error=None if found else "mpv fehlt")
+        self.shuffle = False
+        self._tracks: list[Path] = []
+        self._index = 0
+        self._proc: asyncio.subprocess.Process | None = None
+        self._writer: asyncio.StreamWriter | None = None
+        self._reader_task: asyncio.Task | None = None
+        self._sock = str(root.parent / "mpv.sock")
+
+    async def close(self) -> None:
+        if self._reader_task:
+            self._reader_task.cancel()
+        if self._proc and self._proc.returncode is None:
+            self._proc.terminate()
+
+    async def _ensure(self) -> None:
+        if self._proc and self._proc.returncode is None and self._writer:
+            return
+        if not shutil.which("mpv"):
+            raise PlayerError("mpv ist auf der Box nicht installiert. Einmal box/install.sh ausführen.")
+        if self._proc and self._proc.returncode is None:
+            self._proc.terminate()
+        try:
+            os.unlink(self._sock)
+        except FileNotFoundError:
+            pass
+        device = "auto" if self.audio_device in ("auto", "default") else f"alsa/{self.audio_device}"
+        self._proc = await asyncio.create_subprocess_exec(
+            "mpv", "--idle=yes", "--no-video", "--no-terminal", f"--audio-device={device}",
+            f"--input-ipc-server={self._sock}", f"--volume={self.status.volume}", "--volume-max=100",
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            try:
+                reader, self._writer = await asyncio.open_unix_connection(self._sock)
+                break
+            except OSError:
+                continue
+        else:
+            raise PlayerError("mpv startet nicht")
+        self._send("observe_property", 1, "duration")
+        self._reader_task = asyncio.create_task(self._read(reader))
+
+    def _send(self, *command) -> None:
+        if self._writer:
+            self._writer.write((json.dumps({"command": list(command)}) + "\n").encode())
+
+    async def _read(self, reader: asyncio.StreamReader) -> None:
+        async for line in reader:
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            event = msg.get("event")
+            if event == "property-change" and msg.get("name") == "duration" and msg.get("data"):
+                self.status = replace(self.status, duration_ms=int(msg["data"] * 1000))
+                self._emit("metadata")
+            elif event == "playback-restart" and self.status.playing:
+                self.status = replace(self.status, at=time.monotonic())
+                self._emit("playing")
+            elif event == "end-file" and msg.get("reason") in ("eof", "error") and self.status.playing:
+                self._ended(msg.get("reason") == "error", msg.get("file_error"))
+        self._writer = None
+
+    def _ended(self, failed: bool, why: str | None) -> None:
+        # Wie go-librespot: am Titelende kurz „spielt nicht“, dann der nächste Titel
+        s = self.status
+        self.status = replace(s, playing=False, position_ms=s.duration_ms, at=time.monotonic(), error=why if failed else None)
+        self._emit("stopped" if failed else "not_playing")
+        if failed:
+            log.warning("mpv: %s", why)
+        elif self._index + 1 < len(self._tracks):
+            asyncio.ensure_future(self._load(self._index + 1, 0))
+
+    def _track_uri(self, path: Path) -> str:
+        return f"{media.PREFIX}{path.parent.name}/{path.name}"
+
+    async def _load(self, index: int, position_ms: int) -> None:
+        await self._ensure()
+        self._index = index
+        path = self._tracks[index]
+        self.status = replace(
+            self.status,
+            available=True,
+            playing=True,
+            error=None,
+            context_uri=media.PREFIX + path.parent.name,
+            track_uri=self._track_uri(path),
+            track_name=path.stem,
+            track_number=index + 1,
+            album_name=media.title(self.root, path.parent.name),
+            cover_url=None,
+            duration_ms=0,
+            position_ms=position_ms,
+            at=time.monotonic(),
+        )
+        # „start“ statt Optionen an loadfile: deren Reihenfolge hat sich zwischen mpv-Versionen geändert
+        self._send("set_property", "start", f"{position_ms / 1000:.1f}")
+        self._send("loadfile", str(path), "replace")
+        self._emit("metadata")
+
+    async def play(self, uri: str, skip_to_uri: str | None = None, position_ms: int = 0) -> None:
+        album_id = media.album_of(uri)
+        self._tracks = media.tracks(self.root, album_id) if album_id else []
+        if not self._tracks:
+            raise PlayerError("Für diesen Token liegen keine Dateien (mehr) auf der Box.")
+        uris = [self._track_uri(p) for p in self._tracks]
+        if skip_to_uri in uris:
+            index = uris.index(skip_to_uri)
+        else:
+            index, position_ms = (random.randrange(len(self._tracks)) if self.shuffle else 0), 0
+        await self._load(index, position_ms)
+
+    async def pause(self) -> None:
+        if not self.status.playing:
+            return
+        self.status = replace(self.status, playing=False, position_ms=self.position(), at=time.monotonic())
+        self._send("stop")
+        self._emit("paused")
+
+    async def resume(self) -> None:
+        if self._tracks and not self.status.playing:
+            await self._load(self._index, self.status.position_ms)
+
+    async def _jump(self, index: int) -> None:
+        if not self._tracks:
+            return
+        index = max(0, min(index, len(self._tracks) - 1))
+        if self.status.playing:
+            await self._load(index, 0)
+            return
+        self._index = index
+        p = self._tracks[index]
+        self.status = replace(self.status, track_uri=self._track_uri(p), track_name=p.stem, track_number=index + 1, position_ms=0, duration_ms=0)
+        self._emit("metadata")
+
+    async def next(self) -> None:
+        await self._jump(self._index + 1)
+
+    async def prev(self) -> None:
+        await self._jump(self._index - 1 if self.position() < 3000 else self._index)
+
+    async def seek(self, position_ms: int) -> None:
+        position_ms = max(0, int(position_ms))
+        if self.status.playing:
+            self._send("seek", position_ms / 1000, "absolute")
+        self.status = replace(self.status, position_ms=position_ms, at=time.monotonic())
+        self._emit("seek")
+
+    async def set_volume(self, volume: int) -> None:
+        self.status = replace(self.status, volume=max(0, min(100, int(volume))))
+        self._send("set_property", "volume", self.status.volume)
+        self._emit("volume")
+
+    async def set_shuffle(self, on: bool) -> None:
+        self.shuffle = on
+
+    async def context_tracks(self, uri: str) -> list[dict] | None:
+        # shortcut: ohne Längen (0), der Ring zeigt deshalb den Fortschritt im Titel statt im ganzen Hörspiel; mit mutagen nachrüsten
+        album_id = media.album_of(uri)
+        files = media.tracks(self.root, album_id) if album_id else []
+        return [{"uri": self._track_uri(p), "name": p.stem, "duration_ms": 0} for p in files] or None
+
+
+class MixPlayer(Player):
+    """Spotify oder eigene Dateien, je nach URI. Vor dem Wechsel pausiert der andere und gibt den Verstärker frei."""
+
+    def __init__(self, spotify: Player, local: Player):
+        self.spotify = spotify
+        self.local = local
+        self.active = spotify
+        spotify.on_change = lambda s, r: self._child(spotify, s, r)
+        local.on_change = lambda s, r: self._child(local, s, r)
+
+    @property
+    def status(self) -> PlayerStatus:
+        return self.active.status
+
+    def _child(self, child: Player, status: PlayerStatus, reason: str) -> None:
+        if child is self.spotify and self.active is self.local and reason == "playing" and status.playing:
+            # Jemand spielt über die Spotify-App auf der Box: Spotify übernimmt
+            asyncio.ensure_future(self.local.pause())
+            self.active = self.spotify
+        if child is self.active:
+            self._emit(reason)
+
+    async def start(self) -> None:
+        await self.spotify.start()
+        await self.local.start()
+
+    async def close(self) -> None:
+        await self.spotify.close()
+        await self.local.close()
+
+    def _for(self, uri: str) -> Player:
+        return self.local if uri.startswith(media.PREFIX) else self.spotify
+
+    async def play(self, uri: str, skip_to_uri: str | None = None, position_ms: int = 0) -> None:
+        target = self._for(uri)
+        other = self.spotify if target is self.local else self.local
+        if other.status.playing:
+            await other.pause()
+            if other is self.spotify:
+                # go-librespot schließt den Verstärker erst nach seiner Pause-Meldung; sonst ist er für mpv noch belegt
+                for _ in range(20):
+                    if not other.status.playing:
+                        break
+                    await asyncio.sleep(0.1)
+                await asyncio.sleep(0.3)
+        self.active = target
+        await target.play(uri, skip_to_uri, position_ms)
+
+    async def pause(self) -> None:
+        await self.active.pause()
+
+    async def resume(self) -> None:
+        await self.active.resume()
+
+    async def next(self) -> None:
+        await self.active.next()
+
+    async def prev(self) -> None:
+        await self.active.prev()
+
+    async def seek(self, position_ms: int) -> None:
+        await self.active.seek(position_ms)
+
+    async def set_volume(self, volume: int) -> None:
+        other = self.local if self.active is self.spotify else self.spotify
+        try:
+            await other.set_volume(volume)
+        except (PlayerError, OSError, asyncio.TimeoutError, aiohttp.ClientError):
+            pass  # der gerade stille Player ist evtl. nicht erreichbar; Hauptsache der aktive
+        await self.active.set_volume(volume)
+
+    async def set_shuffle(self, on: bool) -> None:
+        await self.spotify.set_shuffle(on)
+        await self.local.set_shuffle(on)
+
+    async def context_tracks(self, uri: str) -> list[dict] | None:
+        return await self._for(uri).context_tracks(uri)
+
+    def position(self) -> int:
+        return self.active.position()
+
+    async def auth_code(self) -> dict | None:
+        return await self.spotify.auth_code()
+
+    async def web_token(self) -> str | None:
+        return await self.spotify.web_token()
+
+    async def library(self, kind: str) -> dict | None:
+        return await self.spotify.library(kind)
 
 
 class FakePlayer(Player):

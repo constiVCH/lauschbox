@@ -180,6 +180,13 @@ export interface BoxApi {
   search?(query: string): Promise<Medium[]>;
   /** Echte Box: eigene Playlists und gespeicherte Alben */
   library?(): Promise<Medium[]>;
+  /** Eigene Dateien auf der SD-Karte der Box: Alben (uri local:…) und freier Platz */
+  localMedia?(): Promise<{ albums: Medium[]; freeBytes: number }>;
+  /** Neues leeres Album anlegen, gibt dessen URI zurück */
+  createLocalAlbum?(title: string): Promise<string>;
+  /** Eine Datei vom Handy in ein Album hochladen */
+  uploadLocalFile?(albumUri: string, file: { uri: string; name: string; mimeType?: string }): Promise<void>;
+  deleteLocalAlbum?(albumUri: string): Promise<void>;
   /** Echte Box: angemeldetes Spotify-Konto */
   spotifyAccount?(): Promise<SpotifyAccount>;
   /** Echte Box: eigene Spotify-App für die Suche hinterlegen (null = entfernen) */

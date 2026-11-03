@@ -235,7 +235,10 @@ class Engine:
             self._amp_mute()  # bricht auch den Rückfall-Timer ab: sonst rauscht die Box nach 8 s im Leerlauf
             self._loaded = prev_loaded
             self._flash_led("error", 2.0)
-            self._notify("Spotify ist gerade nicht erreichbar. Läuft go-librespot und ist die Box online?", "warning")
+            if token.medium.uri.startswith("local:"):
+                self._notify(str(e), "warning")
+            else:
+                self._notify("Spotify ist gerade nicht erreichbar. Läuft go-librespot und ist die Box online?", "warning")
             return "error"
         self._start_fade()
         if p.finished:

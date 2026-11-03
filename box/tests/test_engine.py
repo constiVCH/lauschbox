@@ -651,3 +651,23 @@ def test_ruhemodus_nach_wartezeit_und_aufwachen(box):
         await engine.close()
 
     run(go())
+
+
+def test_eigene_dateien_pausieren_vorher_spotify():
+    from lauschbox.player import MixPlayer
+
+    async def go():
+        spotify, local = FakePlayer(), FakePlayer()
+        mix = MixPlayer(spotify, local)
+        await mix.play(ALBUM.uri)
+        assert mix.active is spotify and spotify.status.playing
+        await mix.play("local:0123abcd")
+        assert mix.active is local and local.status.playing and not spotify.status.playing
+        await mix.set_volume(30)
+        assert spotify.status.volume == local.status.volume == 30
+        # Spotify-App spielt wieder auf der Box: Spotify übernimmt, die eigenen Dateien gehen aus
+        await spotify.resume()
+        await asyncio.sleep(0)
+        assert mix.active is spotify and not local.status.playing
+
+    run(go())
