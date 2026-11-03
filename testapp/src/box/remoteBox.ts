@@ -393,8 +393,8 @@ export class RemoteBox {
       let res: Response;
       try {
         res = await fetch(`${this.url}/api/media/${localId(albumUri)}/files`, { method: 'POST', body: form });
-      } catch {
-        throw new Error('Box nicht erreichbar. Gleiches WLAN?');
+      } catch (e) {
+        throw new Error(`Hochladen von „${file.name}“ abgebrochen (${e instanceof Error ? e.message : String(e)}).`);
       }
       if (!res.ok) throw new Error((await res.text()) || `Fehler ${res.status}`);
     },

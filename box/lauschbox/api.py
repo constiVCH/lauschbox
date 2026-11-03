@@ -123,6 +123,14 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
     async def media_upload(request: web.Request) -> web.Response:
         """Eine Datei je Anfrage (multipart, Feld „file“), wird gestreamt: auch große Hörbücher passen nicht in den Speicher."""
         root = request.app[MEDIA]
+
+        async def reject(error: web.HTTPException) -> web.HTTPException:
+            # Erst den Rest der Datei annehmen: Antwortet die Box mitten im Senden, meldet Android nur „Verbindung weg“
+            log.warning("Hochladen abgelehnt: %s", error.text)
+            while await request.content.readany():
+                pass
+            return error
+
         try:
             folder = media.album_dir(root, request.match_info["id"])
             if not folder.is_dir():
@@ -132,16 +140,20 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             if part is None or part.name != "file":
                 raise media.MediaError("Datei fehlt")
             name = media.safe_name(part.filename or "")
-        except media.MediaError as e:
-            raise web.HTTPBadRequest(text=str(e)) from e
+        except (media.MediaError, ValueError, AssertionError) as e:
+            raise await reject(web.HTTPBadRequest(text=str(e) or type(e).__name__)) from e
         if request.content_length and request.content_length > media.free_bytes(root):
-            raise web.HTTPInsufficientStorage(text="Auf der SD-Karte ist nicht genug Platz.")
+            raise await reject(web.HTTPInsufficientStorage(text="Auf der SD-Karte ist nicht genug Platz."))
+        log.info("Hochladen: %s (%s Bytes) nach %s", name, request.content_length, folder.name)
         tmp = folder / f".{name}.part"
         try:
             with tmp.open("wb") as f:
                 while chunk := await part.read_chunk(256 * 1024):
                     f.write(chunk)
             tmp.replace(folder / name)
+        except Exception as e:
+            log.warning("Hochladen von %s abgebrochen: %s", name, e)
+            raise
         finally:
             tmp.unlink(missing_ok=True)  # abgebrochener Upload hinterlässt nichts
         return web.json_response({"ok": True, "name": name})
