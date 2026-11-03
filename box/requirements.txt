@@ -1,6 +1,7 @@
 # box-daemon (python -m lauschbox)
 aiohttp>=3.10
 zeroconf>=0.130
+mutagen>=1.47      # Länge eigener Audiodateien
 
 # Hardware am Pi (fehlen sie, läuft der Rest trotzdem).
 # gpiozero und lgpio NICHT per pip: auf dem Pi `sudo apt install python3-gpiozero python3-lgpio`

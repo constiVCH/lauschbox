@@ -157,6 +157,12 @@ function Settings({ pin }: { pin: string }) {
 
       <HardwareSection />
 
+      <Section title="Eigene Dateien" footer="mp3 und andere Audiodateien vom Handy auf die Box laden. Sie spielen auch ohne Internet.">
+        <Card padded={false} style={{ paddingHorizontal: space.lg }}>
+          <Row first title="Dateien verwalten" icon="folder-open" iconColor={c.accent} onPress={() => router.push('/dateien' as Href)} />
+        </Card>
+      </Section>
+
       <Section title="Hilfe" footer="Was die Box zuletzt getan hat. Hilfreich, wenn etwas nicht klappt.">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
           <Row first title="Anleitung" icon="book" iconColor={c.learn} onPress={() => router.push('/anleitung' as Href)} />

@@ -65,7 +65,26 @@ def test_eigene_dateien_hochladen_und_zuweisen(tmp_path):
             listing = await (await client.get("/api/media")).json()
             assert listing["albums"][0]["title"] == "Urlaub" and listing["albums"][0]["track_count"] == 2
             assert (await client.put("/api/tokens/t1", json=token)).status == 200
+            detail = await (await client.get(f"/api/media/{album_id}")).json()
+            assert [f["name"] for f in detail["files"]] == ["01 Anfang.mp3", "evil.mp3"]
+            assert detail["files"][0]["duration_ms"] == 0  # keine echte mp3: Länge unbekannt, kein Fehler
+            assert (await client.delete(f"/api/media/{album_id}/files/evil.mp3")).status == 200
+            assert not (root / album_id / "evil.mp3").exists()
+            assert (await client.delete(f"/api/media/{album_id}/files/title.txt")).status == 400
             assert (await client.delete(f"/api/media/{album_id}")).status == 200
             assert not (root / album_id).exists()
 
     asyncio.run(go())
+
+
+def test_laenge_eigener_dateien(tmp_path):
+    import wave
+
+    from lauschbox import media
+
+    album_id = media.create(tmp_path, "Test")
+    with wave.open(str(tmp_path / album_id / "eins.wav"), "wb") as w:
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000)
+        w.writeframes(b"\0\0" * 12000)  # 1,5 s
+    assert media.files(tmp_path, album_id)[0]["duration_ms"] == 1500
+    assert media.albums(tmp_path)[0]["duration_ms"] == 1500

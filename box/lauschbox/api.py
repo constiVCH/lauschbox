@@ -146,6 +146,25 @@ def build_app(engine: Engine, simulate: bool = False, hardware: dict | None = No
             tmp.unlink(missing_ok=True)  # abgebrochener Upload hinterlässt nichts
         return web.json_response({"ok": True, "name": name})
 
+    @r.get("/api/media/{id}")
+    async def media_album(request: web.Request) -> web.Response:
+        root = request.app[MEDIA]
+        try:
+            album_id = request.match_info["id"]
+            if not media.album_dir(root, album_id).is_dir():
+                raise web.HTTPNotFound(text="Album gibt es nicht (mehr)")
+        except media.MediaError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
+        return web.json_response({"uri": media.PREFIX + album_id, "title": media.title(root, album_id), "files": media.files(root, album_id)})
+
+    @r.delete("/api/media/{id}/files/{name}")
+    async def media_delete_file(request: web.Request) -> web.Response:
+        try:
+            media.delete_file(request.app[MEDIA], request.match_info["id"], request.match_info["name"])
+        except media.MediaError as e:
+            raise web.HTTPBadRequest(text=str(e)) from e
+        return web.json_response({"ok": True})
+
     @r.delete("/api/media/{id}")
     async def media_delete(request: web.Request) -> web.Response:
         try:

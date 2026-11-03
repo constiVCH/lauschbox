@@ -42,6 +42,32 @@ def tracks(root: Path, album_id: str) -> list[Path]:
     return sorted((p for p in d.iterdir() if p.suffix.lower() in AUDIO and p.is_file()), key=lambda p: p.name.lower())
 
 
+_lengths: dict[tuple[str, float, int], int] = {}
+
+
+def duration_ms(path: Path) -> int:
+    """Länge aus dem Dateikopf (mutagen), 0 wenn unbekannt. Gemerkt je Datei, Größe und Änderungszeit."""
+    st = path.stat()
+    key = (str(path), st.st_mtime, st.st_size)
+    if key not in _lengths:
+        try:
+            import mutagen
+
+            info = mutagen.File(path)
+            _lengths[key] = int(info.info.length * 1000) if info is not None and info.info else 0
+        except Exception:  # noqa: BLE001 – kaputte oder exotische Datei: spielt trotzdem, nur ohne Länge
+            _lengths[key] = 0
+    return _lengths[key]
+
+
+def files(root: Path, album_id: str) -> list[dict]:
+    return [{"name": p.name, "size": p.stat().st_size, "duration_ms": duration_ms(p)} for p in tracks(root, album_id)]
+
+
+def delete_file(root: Path, album_id: str, name: str) -> None:
+    (album_dir(root, album_id) / safe_name(name)).unlink(missing_ok=True)
+
+
 def title(root: Path, album_id: str) -> str:
     try:
         return (album_dir(root, album_id) / "title.txt").read_text(encoding="utf-8").strip() or album_id
@@ -55,13 +81,16 @@ def albums(root: Path) -> list[dict]:
     out = []
     for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime):
         if d.is_dir() and _ID.match(d.name):
+            info = files(root, d.name)
             out.append({
                 "uri": PREFIX + d.name,
                 "title": title(root, d.name),
                 "kind": "album",
                 "cover_url": None,
                 "subtitle": "Auf der Box",
-                "track_count": len(tracks(root, d.name)),
+                "track_count": len(info),
+                "duration_ms": sum(f["duration_ms"] for f in info),
+                "size": sum(f["size"] for f in info),
             })
     return out
 

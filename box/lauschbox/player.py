@@ -434,10 +434,9 @@ class LocalPlayer(Player):
         self.shuffle = on
 
     async def context_tracks(self, uri: str) -> list[dict] | None:
-        # shortcut: ohne Längen (0), der Ring zeigt deshalb den Fortschritt im Titel statt im ganzen Hörspiel; mit mutagen nachrüsten
         album_id = media.album_of(uri)
         files = media.tracks(self.root, album_id) if album_id else []
-        return [{"uri": self._track_uri(p), "name": p.stem, "duration_ms": 0} for p in files] or None
+        return [{"uri": self._track_uri(p), "name": p.stem, "duration_ms": media.duration_ms(p)} for p in files] or None
 
 
 class MixPlayer(Player):

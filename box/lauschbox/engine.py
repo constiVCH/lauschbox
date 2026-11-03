@@ -631,7 +631,8 @@ class Engine:
 
     async def _load_tracks(self, uri: str) -> None:
         cached = self.store.tracks(uri)
-        if cached and time.time() - cached[1] < TRACKS_MAX_AGE_S:
+        # Eigene Dateien immer frisch lesen: Es kommen Dateien dazu oder fallen weg, und das kostet nichts
+        if cached and time.time() - cached[1] < TRACKS_MAX_AGE_S and not uri.startswith("local:"):
             self._tracks[uri] = cached[0]
             return
         try:

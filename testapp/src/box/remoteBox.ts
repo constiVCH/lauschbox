@@ -3,7 +3,16 @@ import { baseUrl } from '@/hw/hardware';
 import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice, type PlayMode, type SpotifyAccount } from './types';
 
 /** Zustand, wie ihn der box-daemon schickt (box/lauschbox/engine.py, snapshot()). */
-type RawMedium = { uri: string; title: string; kind: string; cover_url: string | null; subtitle?: string; track_count?: number | null };
+type RawMedium = {
+  uri: string;
+  title: string;
+  kind: string;
+  cover_url: string | null;
+  subtitle?: string;
+  track_count?: number | null;
+  duration_ms?: number;
+  size?: number;
+};
 type RawState = {
   player: {
     available: boolean;
@@ -62,6 +71,8 @@ const medium = (m: RawMedium): Medium => ({
   subtitle: m.subtitle,
   coverUrl: m.cover_url,
   trackCount: m.track_count ?? undefined,
+  durationS: m.duration_ms !== undefined ? m.duration_ms / 1000 : undefined,
+  sizeBytes: m.size,
 });
 
 /** local:<id> → <id> */
@@ -289,6 +300,8 @@ export class RemoteBox {
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: ctrl.signal,
       });
+      if (res.status === 404 && path.startsWith('/api/media'))
+        throw new Error('Die Box-Software ist zu alt dafür. Einstellungen → „Update installieren“.');
       if (!res.ok) throw new Error((await res.text()) || `Fehler ${res.status}`);
       return (await res.json()) as T;
     } catch (e) {
@@ -387,6 +400,16 @@ export class RemoteBox {
     },
     deleteLocalAlbum: async (albumUri) => {
       await this.call('DELETE', `/api/media/${localId(albumUri)}`);
+    },
+    localAlbum: async (albumUri) => {
+      const r = await this.call<{ title: string; files: { name: string; size: number; duration_ms: number }[] }>(
+        'GET',
+        `/api/media/${localId(albumUri)}`,
+      );
+      return { title: r.title, files: r.files.map((f) => ({ name: f.name, sizeBytes: f.size, durationS: f.duration_ms / 1000 })) };
+    },
+    deleteLocalFile: async (albumUri, name) => {
+      await this.call('DELETE', `/api/media/${localId(albumUri)}/files/${encodeURIComponent(name)}`);
     },
     spotifyAccount: async () => {
       const a = await this.call<{

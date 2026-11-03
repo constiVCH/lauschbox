@@ -14,7 +14,12 @@ export type Medium = {
   subtitle?: string;
   coverUrl?: string | null;
   trackCount?: number;
+  /** Nur eigene Dateien: Gesamtlänge und Größe auf der Box */
+  durationS?: number;
+  sizeBytes?: number;
 };
+
+export type LocalFile = { name: string; sizeBytes: number; durationS: number };
 
 export type TokenProgress = {
   trackNumber?: number | null;
@@ -187,6 +192,8 @@ export interface BoxApi {
   /** Eine Datei vom Handy in ein Album hochladen */
   uploadLocalFile?(albumUri: string, file: { uri: string; name: string; mimeType?: string }): Promise<void>;
   deleteLocalAlbum?(albumUri: string): Promise<void>;
+  localAlbum?(albumUri: string): Promise<{ title: string; files: LocalFile[] }>;
+  deleteLocalFile?(albumUri: string, name: string): Promise<void>;
   /** Echte Box: angemeldetes Spotify-Konto */
   spotifyAccount?(): Promise<SpotifyAccount>;
   /** Echte Box: eigene Spotify-App für die Suche hinterlegen (null = entfernen) */
