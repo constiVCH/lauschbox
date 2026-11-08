@@ -14,7 +14,7 @@ from typing import Awaitable, Callable
 
 log = logging.getLogger(__name__)
 
-NUM_LEDS = 12
+NUM_LEDS = 24
 UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 HOLD_S = 1.0

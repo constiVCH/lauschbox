@@ -1,10 +1,10 @@
-"""WS2812-Ring (12 LEDs) an SPI0 MOSI (GPIO10): Farbdurchlauf + Lautstärke-/Akkuanzeige."""
+"""WS2812-Ring (24 LEDs) an SPI0 MOSI (GPIO10): Farbdurchlauf + Lautstärke-/Akkuanzeige."""
 import time
 
 import board
 import neopixel_spi
 
-NUM = 12
+NUM = 24
 pixels = neopixel_spi.NeoPixel_SPI(board.SPI(), NUM, brightness=0.2, auto_write=False)
 
 for color in [(255, 0, 0), (0, 255, 0), (0, 0, 255)]:

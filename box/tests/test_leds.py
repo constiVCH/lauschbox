@@ -6,14 +6,15 @@ OFF = (0, 0, 0)
 def test_fortschritt_laesst_den_rest_aus():
     frame = led_frame({"mode": "playing", "color": "#FF8A3D", "fill": 0.25, "brightness": 0.25}, t=0)
     lit = [c for c in frame if c != OFF]
-    assert len(lit) == 3  # 25 % von 12 LEDs
-    assert frame[3:] == [OFF] * (NUM_LEDS - 3)
+    quarter = NUM_LEDS // 4
+    assert len(lit) == quarter
+    assert frame[quarter:] == [OFF] * (NUM_LEDS - quarter)
 
 
 def test_pause_und_lautstaerke_ebenso():
     for mode in ("paused", "volume"):
         frame = led_frame({"mode": mode, "color": "#FFFFFF", "fill": 0.5, "brightness": 0.25}, t=0.5)
-        assert frame[6:] == [OFF] * 6, mode
+        assert frame[NUM_LEDS // 2 :] == [OFF] * (NUM_LEDS // 2), mode
 
 
 def test_warte_punkt_ist_dunkel():

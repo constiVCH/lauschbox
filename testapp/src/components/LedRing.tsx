@@ -4,7 +4,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import type { LedMode } from '@/box/types';
 
-const N = 12;
+const N = 24;
 
 type Props = {
   mode: LedMode;
@@ -20,13 +20,13 @@ type Props = {
 
 const ANIMATED: LedMode[] = ['idle', 'paused', 'learn', 'unknown', 'denied', 'locked', 'unlocked', 'error'];
 
-/** Zeichnet den WS2812-Ring (12 LEDs) so, wie ihn die Box ansteuert. */
+/** Zeichnet den WS2812-Ring (24 LEDs) so, wie ihn die Box ansteuert. */
 export function LedRing({ mode, color, fill, size, well, brightness = 1 }: Props) {
   const reduceMotion = useReducedMotion();
   const t = useClock(ANIMATED.includes(mode) && !reduceMotion);
   const leds = ledColors(mode, color, fill, reduceMotion ? 0.25 : t);
   const r = size * 0.4;
-  const ledR = size * 0.052;
+  const ledR = (size * 0.62) / N; // halb so viel Platz je LED wie der Abstand: bei jeder Ringgröße frei stehend
   const gain = 0.35 + 0.65 * Math.min(1, brightness / 0.6);
 
   return (
@@ -109,7 +109,7 @@ function useClock(active: boolean) {
     const start = Date.now();
     const loop = () => {
       const now = Date.now();
-      // ~30 Bilder pro Sekunde reichen für 12 LEDs und schonen den Akku
+      // ~30 Bilder pro Sekunde reichen für 24 LEDs und schonen den Akku
       if (now - last > 33) {
         last = now;
         setT((now - start) / 1000);
