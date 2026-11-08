@@ -78,8 +78,13 @@ function ledColors(mode: LedMode, color: string, fill: number, t: number): Led[]
     case 'off':
       return Array(N).fill(null);
     case 'idle': {
-      const head = Math.floor(t * 4) % N;
-      return Array.from({ length: N }, (_, i) => (i === head ? { color: '#FFFFFF', alpha: 0.25 } : null));
+      // Wie die Box (hardware.py, IDLE_TAIL): heller Kopf, dahinter ein Schweif, 10 LEDs pro Sekunde
+      const head = Math.floor(t * 10) % N;
+      const tail = [0.45, 0.2, 0.09, 0.04];
+      return Array.from({ length: N }, (_, i) => {
+        const k = (head - i + N) % N;
+        return k < tail.length ? { color: '#FFFFFF', alpha: tail[k] } : null;
+      });
     }
     case 'playing':
       return filled(color, 0);

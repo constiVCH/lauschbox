@@ -21,8 +21,10 @@ HOLD_S = 1.0
 # So viele Fehllesungen hintereinander, bis ein Token als abgenommen gilt (ca. 0,6 s).
 # Der PN532 verpasst einen aufliegenden Token gelegentlich; sonst würde die Box ständig kurz pausieren.
 MISSES_FOR_REMOVAL = 3
-# Helligkeit des laufenden Punkts im Ruhezustand (Anteil der eingestellten LED-Helligkeit)
-IDLE_LEVEL = 0.15
+# Warte-Animation: ein heller Kopf mit Schweif (Anteil der eingestellten LED-Helligkeit), LEDs pro Sekunde
+IDLE_LEVEL = 0.4
+IDLE_TAIL = (1.0, 0.4, 0.16, 0.06)
+IDLE_SPEED = 10
 # Gammakorrektur: LEDs wirken bei kleinen Werten viel heller als gedacht. Ohne Korrektur kippen Mischfarben
 # (Orange, Rosa, Türkis) ins Weißliche, weil die schwächeren Kanäle zu stark durchscheinen.
 GAMMA = 2.6
@@ -321,8 +323,11 @@ def led_frame(led: dict, t: float) -> list[tuple[int, int, int]]:
         return tuple(round(255 * (v / 255) ** GAMMA * a) for v in c)  # type: ignore[return-value]
 
     if mode == "idle":
-        head = int(t * 4) % NUM_LEDS
-        return [dim((255, 255, 255), IDLE_LEVEL) if i == head else (0, 0, 0) for i in range(NUM_LEDS)]
+        head = int(t * IDLE_SPEED) % NUM_LEDS
+        frame = [(0, 0, 0)] * NUM_LEDS
+        for k, level in enumerate(IDLE_TAIL):
+            frame[(head - k) % NUM_LEDS] = dim((255, 255, 255), IDLE_LEVEL * level)
+        return frame
     if mode == "playing":
         # Nicht erreichte LEDs bleiben aus: schon ein schwacher Rest wirkt am echten Ring wie „alles an“
         return [dim(color, 1 if i < lit else 0) for i in range(NUM_LEDS)]
