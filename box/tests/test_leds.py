@@ -23,6 +23,10 @@ def test_warten_kopf_mit_schweif():
     tail = [frame[(head - k) % NUM_LEDS][0] for k in range(4)]
     assert tail[0] <= 30 and tail == sorted(tail, reverse=True) and tail[-1] > 0  # dezent, nach hinten schwächer
     assert sum(c != OFF for c in frame) == 4
+    # Auf dem Rückweg: Kopf läuft nach links, der Schweif hängt rechts dahinter
+    back = led_frame({"mode": "idle", "color": "#FFFFFF", "fill": 0, "brightness": 0.25}, t=(NUM_LEDS + 1) / 10)
+    head = NUM_LEDS - 3
+    assert back[head][0] > back[head + 1][0] > back[head + 2][0] > 0 and back[head - 1] == OFF
 
 
 def test_orange_bleibt_orange():

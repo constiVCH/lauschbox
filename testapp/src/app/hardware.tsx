@@ -264,9 +264,9 @@ function LedSection({ send, ok }: { send: (cmd: LedCommand) => Promise<unknown>;
         </View>
         <View style={{ gap: space.xs }}>
           <Txt variant="footnote" color="secondary">
-            Füllstand {level} von 24 LEDs
+            Füllstand {level} von 12 LEDs
           </Txt>
-          <Slider label="Füllstand" value={level} min={0} max={24} step={1} onChange={(v) => { setLevel(v); apply({ level: v, mode: 'level' }); }} format={(v) => `${v} LEDs`} />
+          <Slider label="Füllstand" value={level} min={0} max={12} step={1} onChange={(v) => { setLevel(v); apply({ level: v, mode: 'level' }); }} format={(v) => `${v} LEDs`} />
         </View>
       </Card>
     </Section>
