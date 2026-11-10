@@ -14,7 +14,7 @@ from typing import Awaitable, Callable
 
 log = logging.getLogger(__name__)
 
-NUM_LEDS = 12
+NUM_LEDS = 24
 UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 HOLD_S = 1.0
@@ -23,8 +23,8 @@ HOLD_S = 1.0
 MISSES_FOR_REMOVAL = 3
 # Warte-Animation: ein heller Kopf mit Schweif (Anteil der eingestellten LED-Helligkeit), LEDs pro Sekunde
 IDLE_LEVEL = 0.4
-IDLE_TAIL = (1.0, 0.4, 0.16, 0.06)
-IDLE_SPEED = 10
+IDLE_TAIL = (1.0, 0.5, 0.25, 0.12, 0.05)
+IDLE_SPEED = 12
 # Gammakorrektur: LEDs wirken bei kleinen Werten viel heller als gedacht. Ohne Korrektur kippen Mischfarben
 # (Orange, Rosa, Türkis) ins Weißliche, weil die schwächeren Kanäle zu stark durchscheinen.
 GAMMA = 2.6
@@ -323,14 +323,11 @@ def led_frame(led: dict, t: float) -> list[tuple[int, int, int]]:
         return tuple(round(255 * (v / 255) ** GAMMA * a) for v in c)  # type: ignore[return-value]
 
     if mode == "idle":
-        # Hin und her über den Streifen; der Schweif hängt immer hinter dem Kopf
-        step = int(t * IDLE_SPEED) % (2 * (NUM_LEDS - 1))
-        head, direction = (step, 1) if step < NUM_LEDS - 1 else (2 * (NUM_LEDS - 1) - step, -1)
+        # Kreist im Uhrzeigersinn; der Schweif hängt hinter dem Kopf
+        head = int(t * IDLE_SPEED) % NUM_LEDS
         frame = [(0, 0, 0)] * NUM_LEDS
         for k, level in enumerate(IDLE_TAIL):
-            i = head - k * direction
-            if 0 <= i < NUM_LEDS:
-                frame[i] = dim((255, 255, 255), IDLE_LEVEL * level)
+            frame[(head - k) % NUM_LEDS] = dim((255, 255, 255), IDLE_LEVEL * level)
         return frame
     if mode == "playing":
         # Nicht erreichte LEDs bleiben aus: schon ein schwacher Rest wirkt am echten Ring wie „alles an“

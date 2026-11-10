@@ -11,7 +11,7 @@ meldet /api/hw/status den Fehler, der Rest läuft weiter.
 API:
     GET  /api/hw/status    Pi-Modell, Temperatur, I2C-Adressen, Zustand je Bauteil, aufgelegter Token
     WS   /api/hw/events    {"type": "token", "uid": "04a1..."|null}, {"type": "button", "name": ..., "press": "kurz"|"lang"}
-    POST /api/hw/leds      {"mode": "fill"|"level"|"off"|"test", "color": "#ff6a3d", "brightness": 0.2, "level": 0..12}
+    POST /api/hw/leds      {"mode": "fill"|"level"|"off"|"test", "color": "#ff6a3d", "brightness": 0.2, "level": 0..24}
     POST /api/hw/tone      {"channel": "both"|"left"|"right", "volume": 0..100, "freq": 440, "seconds": 1.0}
 """
 import argparse
@@ -30,7 +30,7 @@ from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
-NUM_LEDS = 12
+NUM_LEDS = 24
 GAMMA = 2.6  # wie im box-daemon: sonst wirken Mischfarben am Ring weißlich
 UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
 BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}

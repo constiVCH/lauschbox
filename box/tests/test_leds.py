@@ -18,15 +18,12 @@ def test_pause_und_lautstaerke_ebenso():
 
 
 def test_warten_kopf_mit_schweif():
-    frame = led_frame({"mode": "idle", "color": "#FFFFFF", "fill": 0, "brightness": 0.25}, t=0.5)
-    head = 5  # 0,5 s × 10 LEDs/s
-    tail = [frame[(head - k) % NUM_LEDS][0] for k in range(4)]
+    from lauschbox.hardware import IDLE_SPEED, IDLE_TAIL
+
+    frame = led_frame({"mode": "idle", "color": "#FFFFFF", "fill": 0, "brightness": 0.25}, t=1 / IDLE_SPEED)
+    tail = [frame[(1 - k) % NUM_LEDS][0] for k in range(len(IDLE_TAIL))]  # Kopf auf LED 1, Schweif über das Ende zurück
     assert tail[0] <= 30 and tail == sorted(tail, reverse=True) and tail[-1] > 0  # dezent, nach hinten schwächer
-    assert sum(c != OFF for c in frame) == 4
-    # Auf dem Rückweg: Kopf läuft nach links, der Schweif hängt rechts dahinter
-    back = led_frame({"mode": "idle", "color": "#FFFFFF", "fill": 0, "brightness": 0.25}, t=(NUM_LEDS + 1) / 10)
-    head = NUM_LEDS - 3
-    assert back[head][0] > back[head + 1][0] > back[head + 2][0] > 0 and back[head - 1] == OFF
+    assert sum(c != OFF for c in frame) == len(IDLE_TAIL)
 
 
 def test_orange_bleibt_orange():

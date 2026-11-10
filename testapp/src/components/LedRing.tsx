@@ -4,7 +4,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import type { LedMode } from '@/box/types';
 
-const N = 12;
+const N = 24;
 
 type Props = {
   mode: LedMode;
@@ -20,7 +20,7 @@ type Props = {
 
 const ANIMATED: LedMode[] = ['idle', 'paused', 'learn', 'unknown', 'denied', 'locked', 'unlocked', 'error'];
 
-/** Zeichnet den WS2812-Ring (12 LEDs) so, wie ihn die Box ansteuert. */
+/** Zeichnet den WS2812-Ring (24 LEDs) so, wie ihn die Box ansteuert. */
 export function LedRing({ mode, color, fill, size, well, brightness = 1 }: Props) {
   const reduceMotion = useReducedMotion();
   const t = useClock(ANIMATED.includes(mode) && !reduceMotion);
@@ -78,13 +78,12 @@ function ledColors(mode: LedMode, color: string, fill: number, t: number): Led[]
     case 'off':
       return Array(N).fill(null);
     case 'idle': {
-      // Wie die Box (hardware.py, IDLE_TAIL): heller Kopf mit Schweif, hin und her, 10 LEDs pro Sekunde
-      const step = Math.floor(t * 10) % (2 * (N - 1));
-      const [head, dir] = step < N - 1 ? [step, 1] : [2 * (N - 1) - step, -1];
-      const tail = [0.45, 0.2, 0.09, 0.04];
+      // Wie die Box (hardware.py, IDLE_TAIL): heller Kopf mit Schweif, kreist mit 12 LEDs pro Sekunde
+      const head = Math.floor(t * 12) % N;
+      const tail = [0.45, 0.22, 0.11, 0.05, 0.02];
       return Array.from({ length: N }, (_, i) => {
-        const k = (head - i) * dir;
-        return k >= 0 && k < tail.length ? { color: '#FFFFFF', alpha: tail[k] } : null;
+        const k = (head - i + N) % N;
+        return k < tail.length ? { color: '#FFFFFF', alpha: tail[k] } : null;
       });
     }
     case 'playing':
@@ -115,7 +114,7 @@ function useClock(active: boolean) {
     const start = Date.now();
     const loop = () => {
       const now = Date.now();
-      // ~30 Bilder pro Sekunde reichen für 12 LEDs und schonen den Akku
+      // ~30 Bilder pro Sekunde reichen für 24 LEDs und schonen den Akku
       if (now - last > 33) {
         last = now;
         setT((now - start) / 1000);
