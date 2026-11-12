@@ -17,7 +17,7 @@ Konfiguration über eine eigene App (Expo, iOS + Android). Die Box spielt komple
 
 ## Entscheidungen
 
-- **Hardware:** Raspberry Pi Zero W (32-bit; Zero 2 W ist kompatibel), I2S-Verstärker, PN532 (I2C), WS2812-LED-Ring, 3 Taster, PiSugar-3-Akku (USB-C, Ladestand per I2C).
+- **Hardware:** Banana Pi M2 Zero mit Armbian ([docs/bananapi-m2-zero.md](docs/bananapi-m2-zero.md); ein Raspberry Pi Zero (2) W geht genauso), I2S-Verstärker MAX98357A, PN532 (UART), WS2812-LED-Ring (24 LEDs), 3 Taster, PiSugar 3 Air mit 5000-mAh-Akku (USB-C, Ladestand per I2C).
 - **Quellen:** Spotify (Wiedergabe über go-librespot und dessen lokale API, Suche über die Spotify Web API) und lokale Audiodateien auf der SD-Karte (Wiedergabe über mpv, funktioniert offline). Audible vorerst nicht.
 - **Offline:** Lokale Medien, Kindermodus und Akku funktionieren ohne WLAN; Uhrzeit kommt aus der RTC des PiSugar. Spotify braucht immer Internet.
 - **Token:** Zuordnung UID → Medium liegt auf der Box, nicht auf dem Tag.

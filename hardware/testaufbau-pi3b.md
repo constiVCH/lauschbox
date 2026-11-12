@@ -133,10 +133,10 @@ musst du auf dem Zero neu anlegen: pip lädt auf dem 3B+ Pakete für ARMv7, die 
 Auf dem Pi, im Repo-Ordner:
 
 ```
-sudo apt install -y python3-venv python3-dev i2c-tools git python3-gpiozero python3-lgpio
+sudo apt install -y python3-venv python3-dev build-essential i2c-tools git python3-gpiozero python3-lgpio
 cd box
-# gpiozero und lgpio kommen als Systempakete; die Umgebung darf sie mitbenutzen (--system-site-packages).
-# Per pip müsste lgpio auf dem Pi erst gebaut werden (braucht swig) und scheitert sonst.
+# gpiozero und lgpio brauchen nur noch die Testskripte in spikes/ (die Box-Software nutzt gpiod);
+# die Umgebung darf die Systempakete mitbenutzen (--system-site-packages).
 python3 -m venv --system-site-packages .venv && . .venv/bin/activate
 pip install -r requirements.txt
 ```

@@ -3,6 +3,7 @@
 > Gilt für den **Pi Zero W** (ARMv6, nur 32-bit). Mit einem Zero 2 W geht alles genauso, nur in Schritt 1 das
 > 64-bit-Image und in Schritt 3 das `arm64`-Archiv nehmen.
 > Für den Testaufbau mit einem **Pi 3B+** gelten die Abweichungen in [hardware/testaufbau-pi3b.md](../hardware/testaufbau-pi3b.md).
+> Für den **Banana Pi M2 Zero** (Armbian) gilt stattdessen [bananapi-m2-zero.md](bananapi-m2-zero.md).
 
 ## 1. Grundsystem
 - Raspberry Pi Imager → Gerät „Raspberry Pi Zero“ → **Raspberry Pi OS Lite (32-bit)**, Hostname `lauschbox`,
@@ -99,9 +100,8 @@ Wird in der App eingerichtet: Tab „Box“ → Spotify → „Einrichten“. Do
 
 ## 5. Hardware-Tests (auf dem Pi)
 ```
-sudo apt install -y python3-venv python3-dev i2c-tools python3-gpiozero python3-lgpio
-# gpiozero und lgpio kommen als Systempakete; die Umgebung darf sie mitbenutzen (--system-site-packages).
-# Per pip müsste lgpio auf dem Pi erst gebaut werden (braucht swig) und scheitert sonst.
+sudo apt install -y python3-venv python3-dev build-essential i2c-tools
+# Taster und Stummschaltung laufen über gpiod (pip, siehe requirements.txt).
 # Fertige Pakete (Wheels) für ARMv6 kommen von piwheels (bei Raspberry Pi OS schon eingestellt).
 pip install -r requirements.txt
 i2cdetect -y 1          # 57/68/75 = PiSugar (der PN532 hängt an UART, nicht hier)

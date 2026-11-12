@@ -1,7 +1,10 @@
-"""Hardware am Pi: NFC (PN532 über I2C), 3 Taster (GPIO), LED-Ring (WS2812 über SPI).
+"""Hardware der Box: NFC (PN532 über UART), 3 Taster und Verstärker-Stummschaltung (GPIO über gpiod),
+LED-Ring (WS2812 über SPI).
 
+Läuft auf dem Raspberry Pi und dem Banana Pi M2 Zero; das Board wird beim Start erkannt (BOARD). Die Stiftleiste
+ist bei beiden gleich belegt, nur die Namen der Leitungen unterscheiden sich (siehe PINS).
 Jedes Teil startet für sich. Fehlt eins, läuft der Rest weiter und status() meldet den Fehler.
-Die Pinbelegung steht in hardware/teileliste.md.
+Die Pinbelegung steht in hardware/teileliste.md und docs/bananapi-m2-zero.md.
 """
 from __future__ import annotations
 
@@ -10,14 +13,53 @@ import logging
 import math
 import threading
 import time
+from datetime import timedelta
+from pathlib import Path
 from typing import Awaitable, Callable
 
 log = logging.getLogger(__name__)
 
 NUM_LEDS = 24
-UART_PORT = "/dev/serial0"  # GPIO14/15, Pins 8/10
-BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}
 HOLD_S = 1.0
+
+
+def detect_board() -> str:
+    try:
+        model = Path("/proc/device-tree/model").read_text(errors="ignore").lower()
+    except OSError:
+        return "pi"
+    return "bpi-m2-zero" if "m2-zero" in model or "m2 zero" in model else "pi"
+
+
+# Je Board: serielle Schnittstelle (Pins 8/10) und GPIO als (Anfang des Chip-Labels, Leitung, Name).
+# Das Chip-Label zeigt `gpiodetect`. Beim H3 liegen PA… auf dem Haupt-Chip, PL… auf dem zweiten (R_PIO).
+PINS = {
+    "pi": {
+        "uart": "/dev/serial0",
+        "buttons": {"play_pause": ("pinctrl-", 5, "GPIO5"), "lauter": ("pinctrl-", 6, "GPIO6"), "leiser": ("pinctrl-", 13, "GPIO13")},
+        "amp": ("pinctrl-", 16, "GPIO16"),
+    },
+    "bpi-m2-zero": {
+        "uart": "/dev/ttyS3",  # UART3, Overlay uart3
+        "buttons": {"play_pause": ("1c20800", 7, "PA7"), "lauter": ("1c20800", 8, "PA8"), "leiser": ("1c20800", 9, "PA9")},
+        "amp": ("1f02c00", 4, "PL4"),
+    },
+}
+BOARD = detect_board()
+
+
+def _chip_path(label_start: str) -> str:
+    """Pfad des GPIO-Chips, dessen Label so beginnt (die Nummerierung /dev/gpiochipN ist nicht verlässlich)."""
+    import gpiod
+
+    for path in sorted(Path("/dev").glob("gpiochip*")):
+        try:
+            with gpiod.Chip(str(path)) as chip:
+                if chip.get_info().label.startswith(label_start):
+                    return str(path)
+        except OSError:
+            continue
+    raise RuntimeError(f"GPIO-Chip „{label_start}…“ nicht gefunden")
 # So viele Fehllesungen hintereinander, bis ein Token als abgenommen gilt (ca. 0,6 s).
 # Der PN532 verpasst einen aufliegenden Token gelegentlich; sonst würde die Box ständig kurz pausieren.
 MISSES_FOR_REMOVAL = 3
@@ -41,11 +83,12 @@ def open_pn532(mode: str = "auto"):
             import serial
             from adafruit_pn532.uart import PN532_UART
 
-            port = serial.Serial(UART_PORT, 115200, timeout=0.1)
+            uart = PINS[BOARD]["uart"]
+            port = serial.Serial(uart, 115200, timeout=0.1)
             try:
                 pn = PN532_UART(port, debug=False)
                 _, ver, rev, _ = pn.firmware_version
-                return pn, f"PN532 Firmware {ver}.{rev} über UART ({UART_PORT})"
+                return pn, f"PN532 Firmware {ver}.{rev} über UART ({uart})"
             except Exception:
                 port.close()
                 raise
@@ -154,35 +197,56 @@ class Buttons(Part):
 
     def start(self) -> None:
         try:
-            from gpiozero import Button
+            import gpiod
+            from gpiod.line import Bias, Direction, Edge
+
+            # Bei einem erneuten Versuch erst die schon belegten Leitungen freigeben
+            if getattr(self, "_req", None):
+                self._req.release()
+            pins = PINS[BOARD]["buttons"]
+            chip = _chip_path(next(iter(pins.values()))[0])
+            self._names = {line: name for name, (_, line, _) in pins.items()}
+            settings = gpiod.LineSettings(
+                direction=Direction.INPUT, edge_detection=Edge.BOTH, bias=Bias.PULL_UP, debounce_period=timedelta(milliseconds=40)
+            )
+            self._req = gpiod.request_lines(chip, consumer="lauschbox-tasten", config={tuple(self._names): settings})
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             return
-        # Bei einem erneuten Versuch erst die schon belegten Pins freigeben
-        for b in getattr(self, "buttons", {}).values():
-            b.close()
-        self.buttons = {}
-        failed = []
-        for name, pin in BUTTON_PINS.items():
-            try:
-                b = Button(pin, pull_up=True, bounce_time=0.04, hold_time=HOLD_S)
-            except Exception as e:  # noqa: BLE001
-                failed.append(f"{name} (GPIO{pin}): {e}")
-                continue
-            b.when_pressed = lambda n=name: self._pressed(n)
-            b.when_held = lambda n=name: self._held(n)
-            b.when_released = lambda n=name: self._released(n)
-            self.buttons[name] = b
-        self.ok = not failed
-        self.detail = "; ".join(failed) if failed else "GPIO " + ", ".join(str(p) for p in BUTTON_PINS.values())
+        self._timers: dict[str, threading.Timer] = {}
+        threading.Thread(target=self._watch, args=(self._req,), name="tasten", daemon=True).start()
+        self.ok, self.detail = True, ", ".join(label for _, _, label in pins.values())
+
+    def _watch(self, req) -> None:
+        """Flanken lesen: fallend = gedrückt (Pull-up, Taster gegen GND), steigend = losgelassen."""
+        try:
+            while True:
+                if not req.wait_edge_events(timedelta(seconds=1)):
+                    continue
+                for ev in req.read_edge_events():
+                    name = self._names[ev.line_offset]
+                    if ev.event_type == ev.Type.FALLING_EDGE:
+                        self._pressed(name)
+                    else:
+                        self._released(name)
+        except Exception as e:  # noqa: BLE001 – freigegeben (neuer Versuch) oder Leitung weg
+            if req is getattr(self, "_req", None):
+                self.ok, self.detail = False, f"{type(e).__name__}: {e}"
+                log.warning("Taster: %s", self.detail)
 
     def _emit(self, name: str, press: str) -> None:
         log.info("Taste %s: %s", name, press)
         _submit(self.loop, self.on_press(name, press), f"Taste {name}")
 
     def _pressed(self, name: str) -> None:
+        if name in self.down:
+            return  # Prellen trotz Entprellung: zweites „gedrückt“ ohne „los“
         self.down[name] = time.monotonic()
         self.consumed.discard(name)
+        timer = threading.Timer(HOLD_S, lambda: name in self.down and self._held(name))
+        timer.daemon = True
+        self._timers[name] = timer
+        timer.start()
 
     def _held(self, name: str) -> None:
         if {"lauter", "leiser"} <= self.down.keys():
@@ -204,6 +268,10 @@ class Buttons(Part):
             self._emit(name, "lang")
 
     def _released(self, name: str) -> None:
+        if name not in self.down:
+            return
+        if name in self._timers:
+            self._timers.pop(name).cancel()
         self.down.pop(name, None)
         if name not in self.consumed:
             self._emit(name, "kurz")
@@ -211,35 +279,30 @@ class Buttons(Part):
 
 
 class Amp(Part):
-    """Stummschaltung des MAX98357A über seinen SD-Pin an GPIO16 (Pin 36).
+    """Stummschaltung des MAX98357A über seinen SD-Pin (Pin 36: GPIO16 am Pi, PL4 am Banana Pi).
 
-    Stumm = GPIO16 auf LOW. An = Pin freigeben (Eingang): dann zieht der Widerstand auf dem Board SD hoch und der
+    Stumm = Pin auf LOW. An = Pin freigeben (Eingang): dann zieht der Widerstand auf dem Board SD hoch und der
     Verstärker mischt links + rechts. Niemals HIGH treiben: Bei 3,3 V schaltet der Chip auf „nur linker Kanal“.
     """
-
-    PIN = 16
 
     def __init__(self):
         super().__init__("amp")
         self.muted = False
-        self._h = None
+        self._req = None
 
     def start(self) -> None:
         try:
-            import lgpio
+            import gpiod
+            from gpiod.line import Bias, Direction, Value
 
-            self._lg = lgpio
-            for chip in (0, 4):  # Pi bis 4: gpiochip0, Pi 5: gpiochip4
-                try:
-                    self._h = lgpio.gpiochip_open(chip)
-                    break
-                except Exception:  # noqa: BLE001
-                    continue
-            if self._h is None:
-                raise RuntimeError("kein GPIO-Chip gefunden")
-            lgpio.gpio_claim_output(self._h, self.PIN, 0)
+            label_start, self._line, name = PINS[BOARD]["amp"]
+            self._off = gpiod.LineSettings(direction=Direction.OUTPUT, output_value=Value.INACTIVE)
+            self._on = gpiod.LineSettings(direction=Direction.INPUT, bias=Bias.DISABLED)
+            if self._req:
+                self._req.release()
+            self._req = gpiod.request_lines(_chip_path(label_start), consumer="lauschbox-verstaerker", config={self._line: self._off})
             self.muted = True
-            self.ok, self.detail = True, "GPIO16 an SD: stumm, solange nichts spielt"
+            self.ok, self.detail = True, f"{name} an SD: stumm, solange nichts spielt"
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             log.warning("Verstärker-Stummschaltung: %s", self.detail)
@@ -247,15 +310,13 @@ class Amp(Part):
     def mute(self) -> None:
         if not self.ok or self.muted:
             return
-        self._lg.gpio_free(self._h, self.PIN)
-        self._lg.gpio_claim_output(self._h, self.PIN, 0)
+        self._req.reconfigure_lines({self._line: self._off})
         self.muted = True
 
     def unmute(self) -> None:
         if not self.ok or not self.muted:
             return
-        self._lg.gpio_free(self._h, self.PIN)
-        self._lg.gpio_claim_input(self._h, self.PIN, self._lg.SET_PULL_NONE)
+        self._req.reconfigure_lines({self._line: self._on})
         self.muted = False
 
 
@@ -266,12 +327,21 @@ class LedRing(Part):
 
     def start(self) -> None:
         try:
-            import board
             import neopixel_spi
 
-            self.pixels = neopixel_spi.NeoPixel_SPI(board.SPI(), NUM_LEDS, brightness=1.0, auto_write=False)
+            if BOARD == "bpi-m2-zero":
+                # board.SPI() wäre beim H3 SPI1 (Pins 8/10, belegt vom NFC-Leser); der Ring hängt an SPI0 (Pin 19 = PC0)
+                import busio
+                from adafruit_blinka.microcontroller.allwinner.h3 import pin
+
+                spi, where = busio.SPI(pin.PC2, MOSI=pin.PC0), "SPI0 (Pin 19, PC0)"
+            else:
+                import board
+
+                spi, where = board.SPI(), "SPI0 (Pin 19, GPIO10)"
+            self.pixels = neopixel_spi.NeoPixel_SPI(spi, NUM_LEDS, brightness=1.0, auto_write=False)
             self.show([(0, 0, 0)] * NUM_LEDS)
-            self.ok, self.detail = True, f"{NUM_LEDS} LEDs an SPI0 (GPIO10)"
+            self.ok, self.detail = True, f"{NUM_LEDS} LEDs an {where}"
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             log.warning("LEDs: %s", self.detail)

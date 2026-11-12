@@ -3,13 +3,11 @@ aiohttp>=3.10
 zeroconf>=0.130
 mutagen>=1.47      # Länge eigener Audiodateien
 
-# Hardware am Pi (fehlen sie, läuft der Rest trotzdem).
-# gpiozero und lgpio NICHT per pip: auf dem Pi `sudo apt install python3-gpiozero python3-lgpio`
-# und die Umgebung mit `python3 -m venv --system-site-packages .venv` anlegen.
+# Hardware (fehlen sie, läuft der Rest trotzdem). Raspberry Pi und Banana Pi M2 Zero gleichermaßen.
 adafruit-circuitpython-pn532
 pyserial          # PN532 über UART
 adafruit-circuitpython-neopixel-spi
-# Blinka (LED-Ring) verweigert das ältere gpiod aus den Systempaketen: passende Version in die Umgebung holen
+# Taster und Verstärker-Stummschaltung; Blinka (LED-Ring) braucht ebenfalls diese neuere Version
 gpiod>=2.2.2,<3
 
 # Tests (am PC)

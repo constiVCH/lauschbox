@@ -12,3 +12,7 @@ box/data/
 
 # graphify: lokaler Wissensgraph
 graphify-out/
+
+# SD-Karten-Backups (mehrere GB)
+BACKUP_*
+*.img

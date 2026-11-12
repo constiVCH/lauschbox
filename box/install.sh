@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lauschbox einmalig einrichten: Pakete, Python-Umgebung, go-librespot, Dienste, Rechte.
+# Lauschbox einmalig einrichten: Pakete, Schnittstellen, Python-Umgebung, go-librespot, Dienste, Rechte.
+# Läuft auf Raspberry Pi OS (Raspberry Pi) und Armbian (Banana Pi M2 Zero, docs/bananapi-m2-zero.md).
 # Danach starten go-librespot und die Box-Software beim Einschalten von selbst und lassen sich aus der App
 # neu starten, aktualisieren und abmelden. Kann gefahrlos mehrfach ausgeführt werden.
 #
@@ -20,13 +21,43 @@ fi
 
 step "Pakete"
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv python3-dev python3-gpiozero python3-lgpio swig liblgpio-dev i2c-tools git curl mpv
+# build-essential: pip baut gpiod (Taster, Stummschaltung) aus dem Quelltext, falls es kein fertiges Paket gibt
+sudo apt-get install -y -qq python3-venv python3-dev build-essential i2c-tools alsa-utils git curl mpv
 
-step "Schnittstellen (I2C, SPI, serielle Schnittstelle für den NFC-Leser)"
-sudo raspi-config nonint do_i2c 0 || true
-sudo raspi-config nonint do_spi 0 || true
-sudo raspi-config nonint do_serial_hw 0 || true
-sudo raspi-config nonint do_serial_cons 1 || true
+ARMBIAN_ENV=/boot/armbianEnv.txt
+if [ -f "$ARMBIAN_ENV" ]; then
+  step "Schnittstellen (Armbian): SPI0 für den LED-Ring, UART3 für den NFC-Leser, I2C0, I2S für den Verstärker"
+  add_overlay() {
+    if ! grep -qE "^overlays=(.* )?$1( |\$)" "$ARMBIAN_ENV"; then
+      if grep -q '^overlays=' "$ARMBIAN_ENV"; then sudo sed -i "s/^overlays=.*/& $1/" "$ARMBIAN_ENV"
+      else echo "overlays=$1" | sudo tee -a "$ARMBIAN_ENV" >/dev/null; fi
+    fi
+  }
+  set_param() {
+    if grep -q "^$1=" "$ARMBIAN_ENV"; then sudo sed -i "s/^$1=.*/$1=$2/" "$ARMBIAN_ENV"
+    else echo "$1=$2" | sudo tee -a "$ARMBIAN_ENV" >/dev/null; fi
+  }
+  for OVERLAY in spi-spidev uart3 i2c0; do add_overlay "$OVERLAY"; done
+  set_param param_spidev_spi_bus 0         # SPI0 (Pin 19); SPI1 teilt sich die Pins 8/10 mit UART3
+  set_param param_spidev_max_freq 10000000 # der LED-Ring braucht 6,4 MHz
+  if ! grep -q 'lauschbox-max98357a' "$ARMBIAN_ENV"; then
+    sudo armbian-add-overlay "$BOX_DIR/overlays/lauschbox-max98357a.dts"
+  fi
+  # Armbian lässt GPIO und SPI nur root benutzen: Gruppen anlegen und freigeben
+  for GROUP in gpio spi i2c; do sudo groupadd -f "$GROUP"; done
+  sudo tee /etc/udev/rules.d/99-lauschbox.rules >/dev/null <<'EOF'
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+SUBSYSTEM=="spidev", GROUP="spi", MODE="0660"
+SUBSYSTEM=="i2c-dev", GROUP="i2c", MODE="0660"
+EOF
+  sudo udevadm control --reload-rules && sudo udevadm trigger || true
+else
+  step "Schnittstellen (I2C, SPI, serielle Schnittstelle für den NFC-Leser)"
+  sudo raspi-config nonint do_i2c 0 || true
+  sudo raspi-config nonint do_spi 0 || true
+  sudo raspi-config nonint do_serial_hw 0 || true
+  sudo raspi-config nonint do_serial_cons 1 || true
+fi
 
 step "Python-Umgebung"
 if [ ! -d "$BOX_DIR/.venv" ]; then
@@ -52,6 +83,8 @@ CONF="$USER_HOME/.config/go-librespot/config.yml"
 if [ ! -f "$CONF" ]; then
   mkdir -p "$(dirname "$CONF")"
   CARD=$(aplay -l 2>/dev/null | grep -oP 'card \d+: \K[^ ]+(?= \[MAX98357)' | head -1 || true)
+  # Armbian: die Soundkarte entsteht erst nach dem Neustart, ihr Name steht aber fest (overlays/lauschbox-max98357a.dts)
+  if [ -z "$CARD" ] && [ -f "$ARMBIAN_ENV" ]; then CARD=MAX98357A; fi
   AUDIO=default
   if [ -n "$CARD" ]; then AUDIO="plughw:CARD=$CARD,DEV=0"; fi  # direkt auf den Verstärker, nicht über PipeWire
   cat >"$CONF" <<EOF
