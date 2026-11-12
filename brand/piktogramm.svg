@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">
+<!-- Piktogramm der Lauschbox, einfarbig (currentColor). Erzeugt von brand/make_logo.py -->
+<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+<path d="M150 232 Q256 120 362 232" fill="none" stroke-width="7" stroke-linecap="round" stroke="white"/>
+<rect x="120" y="228" width="272" height="184" rx="36" fill="white"/>
+<rect x="197" y="214" width="30" height="22" rx="7" fill="white"/>
+<rect x="241" y="214" width="30" height="22" rx="7" fill="white"/>
+<rect x="285" y="214" width="30" height="22" rx="7" fill="white"/>
+<path d="M415.7 261.9 A170 170 0 0 1 415.7 378.1" fill="none" stroke-width="14" stroke-linecap="round" stroke="white"/>
+<path d="M96.3 378.1 A170 170 0 0 1 96.3 261.9" fill="none" stroke-width="14" stroke-linecap="round" stroke="white"/>
+<path d="M445.3 269.3 A196 196 0 0 1 445.3 370.7" fill="none" stroke-width="14" stroke-linecap="round" stroke="white"/>
+<path d="M66.7 370.7 A196 196 0 0 1 66.7 269.3" fill="none" stroke-width="14" stroke-linecap="round" stroke="white"/>
+<circle cx="256.0" cy="262.0" r="9" fill="black"/>
+<circle cx="285.0" cy="269.8" r="9" fill="black"/>
+<circle cx="306.2" cy="291.0" r="9" fill="black"/>
+<circle cx="314.0" cy="320.0" r="9" fill="black"/>
+<circle cx="306.2" cy="349.0" r="9" fill="black"/>
+<circle cx="285.0" cy="370.2" r="9" fill="black"/>
+<circle cx="256.0" cy="378.0" r="9" fill="black"/>
+<circle cx="227.0" cy="370.2" r="9" fill="black"/>
+<circle cx="205.8" cy="349.0" r="9" fill="black"/>
+<circle cx="198.0" cy="320.0" r="9" fill="black"/>
+<circle cx="205.8" cy="291.0" r="9" fill="black"/>
+<circle cx="227.0" cy="269.8" r="9" fill="black"/>
+</mask>
+<rect width="512" height="512" fill="currentColor" mask="url(#m)"/>
+</svg>

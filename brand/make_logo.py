@@ -1,173 +1,155 @@
-"""Erzeugt das Lauschbox-Logo als SVG + PNG und ersetzt die Flutter-Standard-Icons.
+"""Erzeugt Piktogramm und Logo der Lauschbox (SVG + PNG) und die App-Icons in testapp/assets.
 
-Motiv: Kiste in leichter Draufsicht. Vorne das Lautsprechergitter, oben in einer dunklen Mulde
-der LED-Ring (12 Punkte, 9 leuchten) mit dem Token in der Mitte, darüber ein warmer Lichtschein.
+Motiv: die Box von vorn. Vorne der LED-Ring, oben die drei Tasten, darüber flach die Kordel als Griff. Die Schallbögen links und rechts stehen für die Lautsprecher in den Seiten.
+Piktogramm und Logo nutzen dieselbe Zeichnung: das Piktogramm einfarbig mit echten Aussparungen (zum Drucken,
+Lasern, Plotten), das Logo farbig auf Navy.
 
-Aufruf: python brand/make_logo.py <Projektordner>
+Aufruf: python brand/make_logo.py
 """
 import math
-import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
-ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 BRAND = ROOT / "brand"
-APP = ROOT / "testapp"
+ASSETS = ROOT / "testapp" / "assets"
 
-NAVY = (27, 35, 51)
-PLATE = (38, 47, 68)
-TOKEN = (255, 244, 230)
-AMBER = (255, 190, 92)
-CORAL = (232, 102, 61)
-CORAL_DARK = (201, 80, 44)
-LID = (244, 140, 92)
-GRILLE = (176, 66, 36)
+NAVY = "#1B2333"
+CREAM = "#FFF4E6"
+AMBER = "#FFBE5C"
+CORAL = "#E8663D"
+CORAL_DARK = "#B04224"
+CORD_COLOR = "#8A7F78"  # gedämpftes Grau-Braun: Kordel tritt zurück
+
+# Geometrie in einem 512er-Quadrat
+STROKE = 14
+CORD_STROKE = 7  # die Kordel dünn und dezent
+CORD = ((150, 232), (256, 120), (362, 232))  # quadratische Kurve: Start, Kontrollpunkt, Ende
+BUTTONS = [(c - 15, 214, c + 15, 236, 7) for c in (212, 256, 300)]
+BODY = (120, 228, 392, 412, 36)
+RING_C, RING_R, DOT_R = (256, 320), 58, 9  # LED-Ring vorn: 12 Punkte
 N, LIT = 12, 9
-OFFSET_Y = -48  # Motiv optisch mittig setzen
-
-# Geometrie in Einheiten eines 1024er-Quadrats
-LID_INNER = [(296, 372), (728, 372), (778, 500), (246, 500)]  # wird um LID_ROUND nach außen gerundet
-LID_ROUND = 26
-FRONT = (220, 500, 804, 832, 60)  # x0, y0, x1, y1, Radius
-PLATE_C, PLATE_R = (512, 436), (208, 54)
-RING_R = (164, 36)
-DOT = (14, 9)
-TOKEN_R = (62, 16)
-GRILLE_COLS, GRILLE_ROWS, GRILLE_STEP, GRILLE_R, GRILLE_Y = 6, 3, 58, 15, 680
+WAVES = [(170, 20), (196, 15)]  # Radius um die Mitte der Box, halber Winkel in Grad
 
 
-def lerp(a, b, t):
-    return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
-
-
-def ring_dots():
-    """(x, y, farbe, leuchtet); Start vorne-oben im Uhrzeigersinn, perspektivisch gestaucht."""
+def shapes(colored: bool):
+    """Zeichenschritte von hinten nach vorn: (form, parameter, farbe). Farbe None = Aussparung."""
+    ops = [("curve", CORD, CORD_COLOR if colored else "fg")]
+    ops.append(("rrect", BODY, CORAL if colored else "fg"))
+    ops += [("rrect", b, CORAL_DARK if colored else "fg") for b in BUTTONS]
+    for radius, half in WAVES:
+        for side in (0, 180):
+            ops.append(("arc", (RING_C, radius, side - half, side + half), AMBER if colored else "fg"))
     for i in range(N):
-        a = -math.pi / 2 + i * 2 * math.pi / N
-        lit = i < LIT
-        color = lerp(AMBER, CORAL, i / (LIT - 1)) if lit else lerp(PLATE, CORAL, 0.3)
-        yield PLATE_C[0] + RING_R[0] * math.cos(a), PLATE_C[1] + RING_R[1] * math.sin(a), color, lit
+        a = math.radians(-90 + i * 360 / N)
+        p = (RING_C[0] + RING_R * math.cos(a), RING_C[1] + RING_R * math.sin(a))
+        ops.append(("circle", (p, DOT_R), (CREAM if i < LIT else CORAL_DARK) if colored else None))
+    return ops
 
 
-def grille():
-    x0 = 512 - (GRILLE_COLS - 1) * GRILLE_STEP / 2
-    y0 = GRILLE_Y - (GRILLE_ROWS - 1) * GRILLE_STEP / 2
-    for r in range(GRILLE_ROWS):
-        for c in range(GRILLE_COLS):
-            yield x0 + c * GRILLE_STEP, y0 + r * GRILLE_STEP
+def _bezier(points, steps=64):
+    (x0, y0), (cx, cy), (x1, y1) = points
+    return [((1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1)
+            for t in (i / steps for i in range(steps + 1))]
 
 
-def render(size, rounded, scale=4):
+def _arc_points(center, radius, a0, a1, steps=32):
+    return [(center[0] + radius * math.cos(math.radians(a)), center[1] + radius * math.sin(math.radians(a)))
+            for a in (a0 + (a1 - a0) * i / steps for i in range(steps + 1))]
+
+
+def draw(d: ImageDraw.ImageDraw, ops, k: float, color_of) -> None:
+    """k: Pixel je Einheit. color_of: Farbe des Zeichenschritts → PIL-Farbe."""
+    for kind, p, color in ops:
+        fill = color_of(color)
+        if kind == "rrect":
+            x0, y0, x1, y1, r = p
+            d.rounded_rectangle([x0 * k, y0 * k, x1 * k, y1 * k], radius=r * k, fill=fill)
+        elif kind == "circle":
+            (cx, cy), r = p
+            d.ellipse([(cx - r) * k, (cy - r) * k, (cx + r) * k, (cy + r) * k], fill=fill)
+        else:
+            pts = _bezier(p) if kind == "curve" else _arc_points(*p)
+            w = (CORD_STROKE if kind == "curve" else STROKE) * k
+            d.line([(x * k, y * k) for x, y in pts], fill=fill, width=round(w), joint="curve")
+            for x, y in (pts[0], pts[-1]):  # runde Enden
+                d.ellipse([x * k - w / 2, y * k - w / 2, x * k + w / 2, y * k + w / 2], fill=fill)
+
+
+def render(size: int, background: bool, rounded: bool = False, inset: float = 0.0, scale: int = 4) -> Image.Image:
+    """Farbiges Logo. inset: Rand in Anteilen der Kantenlänge (Android-Icons brauchen eine Sicherheitszone)."""
     s = size * scale
-    k = s / 1024
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if background:
+        d.rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.22) if rounded else 0, fill=NAVY)
+    k = s * (1 - 2 * inset) / 512
+    layer = Image.new("RGBA", (int(512 * k), int(512 * k)), (0, 0, 0, 0))
+    ops = shapes(colored=True)
+    if not background:
+        # Ohne Hintergrund müssen die Abstände um die Tasten durchsichtig sein statt Navy
+        ops = [(kind, p, None if c == NAVY else c) for kind, p, c in ops]
+    draw(ImageDraw.Draw(layer), ops, k, lambda c: (0, 0, 0, 0) if c is None else c)
+    off = int(s * inset)
+    img.alpha_composite(layer, (off, off))
+    return img.resize((size, size), Image.LANCZOS)
 
-    def P(x, y):
-        return x * k, (y + OFFSET_Y) * k
 
-    def ell(d, cx, cy, rx, ry, fill):
-        cy += OFFSET_Y
-        d.ellipse([(cx - rx) * k, (cy - ry) * k, (cx + rx) * k, (cy + ry) * k], fill=fill)
+def _svg_shape(kind, p, attrs: str) -> str:
+    if kind == "rrect":
+        x0, y0, x1, y1, r = p
+        return f'<rect x="{x0}" y="{y0}" width="{x1 - x0}" height="{y1 - y0}" rx="{r}" {attrs}/>'
+    if kind == "circle":
+        (cx, cy), r = p
+        return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" {attrs}/>'
+    if kind == "curve":
+        (x0, y0), (cx, cy), (x1, y1) = p
+        path = f"M{x0} {y0} Q{cx} {cy} {x1} {y1}"
+    else:
+        (sx, sy), (ex, ey) = _arc_points(*p, steps=1)
+        path = f"M{sx:.1f} {sy:.1f} A{p[1]} {p[1]} 0 0 1 {ex:.1f} {ey:.1f}"
+    width = CORD_STROKE if kind == "curve" else STROKE
+    return f'<path d="{path}" fill="none" stroke-width="{width}" stroke-linecap="round" {attrs.replace("fill=", "stroke=")}/>'
 
+
+def svg_pictogram() -> str:
+    # Maske: Weiß zeichnet, Schwarz spart aus. So bleibt das Piktogramm eine einzige Farbe (currentColor).
+    body = "\n".join(_svg_shape(kind, p, f'fill="{"black" if c is None else "white"}"') for kind, p, c in shapes(colored=False))
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">\n'
+        "<!-- Piktogramm der Lauschbox, einfarbig (currentColor). Erzeugt von brand/make_logo.py -->\n"
+        f'<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">\n{body}\n</mask>\n'
+        '<rect width="512" height="512" fill="currentColor" mask="url(#m)"/>\n</svg>\n'
+    )
+
+
+def svg_logo() -> str:
+    body = "\n".join(_svg_shape(kind, p, f'fill="{c}"') for kind, p, c in shapes(colored=True))
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">\n'
+        "<!-- Logo der Lauschbox. Erzeugt von brand/make_logo.py -->\n"
+        f'<rect width="512" height="512" rx="113" fill="{NAVY}"/>\n{body}\n</svg>\n'
+    )
+
+
+def pictogram_png(size: int, color: str = NAVY, scale: int = 4) -> Image.Image:
+    s = size * scale
     mask = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.22) if rounded else 0, fill=255)
-    img = Image.new("RGBA", (s, s), NAVY + (255,))
-
-    # Schatten unter der Kiste
-    shadow = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    ell(ImageDraw.Draw(shadow), 512, 846, 300, 26, (0, 0, 0, 120))
-    img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(14 * k)))
-
-    # Lichtschein, der hinter dem Deckel nach oben steigt
-    halo = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    ell(ImageDraw.Draw(halo), 512, 372, 240, 92, AMBER + (95,))
-    img = Image.alpha_composite(img, halo.filter(ImageFilter.GaussianBlur(40 * k)))
-
-    # Front mit Verlauf
-    x0, y0, x1, y1, r = FRONT
-    front_mask = Image.new("L", (s, s), 0)
-    fm = ImageDraw.Draw(front_mask)
-    fm.rounded_rectangle([*P(x0, y0), *P(x1, y1)], radius=r * k, fill=255)
-    fm.rectangle([*P(x0, y0), *P(x1, y0 + r)], fill=255)
-    grad = Image.new("RGBA", (s, s))
-    gd = ImageDraw.Draw(grad)
-    for yy in range(int((y0 + OFFSET_Y) * k), int((y1 + OFFSET_Y) * k) + 1):
-        t = (yy / k - OFFSET_Y - y0) / (y1 - y0)
-        gd.line([(0, yy), (s, yy)], fill=lerp(CORAL, CORAL_DARK, t) + (255,))
-    img.paste(grad, mask=front_mask)
-
-    d = ImageDraw.Draw(img)
-    for gx, gy in grille():
-        ell(d, gx, gy, GRILLE_R, GRILLE_R, GRILLE + (255,))
-
-    # Deckel: Trapez mit runden Ecken (Füllung + dicke Kontur mit runden Verbindungen)
-    pts = [P(x, y) for x, y in LID_INNER]
-    d.polygon(pts, fill=LID + (255,))
-    d.line(pts + [pts[0]], fill=LID + (255,), width=int(2 * LID_ROUND * k), joint="curve")
-    for p in pts:
-        d.ellipse([p[0] - LID_ROUND * k, p[1] - LID_ROUND * k, p[0] + LID_ROUND * k, p[1] + LID_ROUND * k], fill=LID + (255,))
-
-    ell(d, *PLATE_C, *PLATE_R, PLATE + (255,))
-
-    # Lichtschein über den leuchtenden LEDs
-    glow = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    gl = ImageDraw.Draw(glow)
-    for x, y, c, lit in ring_dots():
-        if lit:
-            ell(gl, x, y, DOT[0] * 1.8, DOT[1] * 1.8, c + (90,))
-    img = Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(9 * k)))
-
-    d = ImageDraw.Draw(img)
-    for x, y, c, lit in ring_dots():
-        ell(d, x, y, *DOT, c + (255,))
-    ell(d, *PLATE_C, *TOKEN_R, TOKEN + (255,))
-
-    out = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    out.paste(img, mask=mask)
-    return out.resize((size, size), Image.LANCZOS)
-
-
-def svg():
-    f = 0.5  # 1024er-Geometrie -> viewBox 512
-    rgb = lambda c: "#%02X%02X%02X" % c
-    x0, y0, x1, y1, r = FRONT
-    lid = " ".join(f"{x*f:.1f},{y*f:.1f}" for x, y in LID_INNER)
-    parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">',
-        "<defs>",
-        f'<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{rgb(CORAL)}"/>'
-        f'<stop offset="1" stop-color="{rgb(CORAL_DARK)}"/></linearGradient>',
-        '<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4.5"/></filter>',
-        '<filter id="halo" x="-50%" y="-100%" width="200%" height="300%"><feGaussianBlur stdDeviation="20"/></filter>',
-        '<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>',
-        "</defs>",
-        f'<rect width="512" height="512" rx="113" fill="{rgb(NAVY)}"/>',
-        f'<g transform="translate(0 {OFFSET_Y*f})">',
-        f'<ellipse cx="256" cy="{372*f}" rx="{240*f}" ry="{92*f}" fill="{rgb(AMBER)}" opacity="0.37" filter="url(#halo)"/>',
-        f'<ellipse cx="256" cy="{846*f}" rx="{300*f}" ry="{26*f}" fill="#000" opacity="0.47" filter="url(#shadow)"/>',
-        f'<rect x="{x0*f}" y="{y0*f}" width="{(x1-x0)*f}" height="{(y1-y0)*f}" rx="{r*f}" fill="url(#front)"/>',
-        f'<rect x="{x0*f}" y="{y0*f}" width="{(x1-x0)*f}" height="{r*f}" fill="{rgb(CORAL)}"/>',
-    ]
-    parts += [f'<circle cx="{x*f:.1f}" cy="{y*f:.1f}" r="{GRILLE_R*f}" fill="{rgb(GRILLE)}"/>' for x, y in grille()]
-    parts.append(f'<polygon points="{lid}" fill="{rgb(LID)}" stroke="{rgb(LID)}" stroke-width="{2*LID_ROUND*f}" stroke-linejoin="round"/>')
-    parts.append(f'<ellipse cx="{PLATE_C[0]*f}" cy="{PLATE_C[1]*f}" rx="{PLATE_R[0]*f}" ry="{PLATE_R[1]*f}" fill="{rgb(PLATE)}"/>')
-    parts.append('<g filter="url(#blur)">')
-    for x, y, c, lit in ring_dots():
-        if lit:
-            parts.append(f'<ellipse cx="{x*f:.1f}" cy="{y*f:.1f}" rx="{DOT[0]*1.8*f:.1f}" ry="{DOT[1]*1.8*f:.1f}" fill="{rgb(c)}" opacity="0.35"/>')
-    parts.append("</g>")
-    for x, y, c, lit in ring_dots():
-        parts.append(f'<ellipse cx="{x*f:.1f}" cy="{y*f:.1f}" rx="{DOT[0]*f}" ry="{DOT[1]*f}" fill="{rgb(c)}"/>')
-    parts.append(f'<ellipse cx="{PLATE_C[0]*f}" cy="{PLATE_C[1]*f}" rx="{TOKEN_R[0]*f}" ry="{TOKEN_R[1]*f}" fill="{rgb(TOKEN)}"/>')
-    parts.append("</g>")
-    parts.append("</svg>")
-    return "\n".join(parts) + "\n"
+    draw(ImageDraw.Draw(mask), shapes(colored=False), s / 512, lambda c: 0 if c is None else 255)
+    img = Image.new("RGBA", (s, s), color)
+    img.putalpha(mask)
+    return img.resize((size, size), Image.LANCZOS)
 
 
 if __name__ == "__main__":
-    BRAND.mkdir(exist_ok=True)
-    (BRAND / "logo.svg").write_text(svg(), encoding="utf-8")
-    render(1024, rounded=True).save(BRAND / "logo-1024.png")
-    render(1024, rounded=False).save(BRAND / "icon-square-1024.png")
-    (APP / "assets").mkdir(exist_ok=True)
-    render(512, rounded=True).save(APP / "assets" / "logo.png")
+    (BRAND / "piktogramm.svg").write_text(svg_pictogram(), encoding="utf-8")
+    (BRAND / "logo.svg").write_text(svg_logo(), encoding="utf-8")
+    pictogram_png(1024).save(BRAND / "piktogramm-1024.png")
+    render(1024, background=True, rounded=True).save(BRAND / "logo-1024.png")
+    render(1024, background=True).save(BRAND / "icon-square-1024.png")
+    render(1024, background=True, rounded=True).save(ASSETS / "logo.png")
+    render(1024, background=True).save(ASSETS / "icon.png")
+    render(1024, background=False, inset=0.17).save(ASSETS / "android-icon-foreground.png")  # Hintergrund kommt aus app.json
+    render(1024, background=False, inset=0.12).save(ASSETS / "splash-icon.png")
+    render(48, background=True, rounded=True).save(ASSETS / "favicon.png")

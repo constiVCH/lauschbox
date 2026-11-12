@@ -1,59 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lauschbox">
-<defs>
-<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8663D"/><stop offset="1" stop-color="#C9502C"/></linearGradient>
-<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4.5"/></filter>
-<filter id="halo" x="-50%" y="-100%" width="200%" height="300%"><feGaussianBlur stdDeviation="20"/></filter>
-<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
-</defs>
+<!-- Logo der Lauschbox. Erzeugt von brand/make_logo.py -->
 <rect width="512" height="512" rx="113" fill="#1B2333"/>
-<g transform="translate(0 -24.0)">
-<ellipse cx="256" cy="186.0" rx="120.0" ry="46.0" fill="#FFBE5C" opacity="0.37" filter="url(#halo)"/>
-<ellipse cx="256" cy="423.0" rx="150.0" ry="13.0" fill="#000" opacity="0.47" filter="url(#shadow)"/>
-<rect x="110.0" y="250.0" width="292.0" height="166.0" rx="30.0" fill="url(#front)"/>
-<rect x="110.0" y="250.0" width="292.0" height="30.0" fill="#E8663D"/>
-<circle cx="183.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="212.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="241.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="270.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="299.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="328.5" cy="311.0" r="7.5" fill="#B04224"/>
-<circle cx="183.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="212.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="241.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="270.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="299.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="328.5" cy="340.0" r="7.5" fill="#B04224"/>
-<circle cx="183.5" cy="369.0" r="7.5" fill="#B04224"/>
-<circle cx="212.5" cy="369.0" r="7.5" fill="#B04224"/>
-<circle cx="241.5" cy="369.0" r="7.5" fill="#B04224"/>
-<circle cx="270.5" cy="369.0" r="7.5" fill="#B04224"/>
-<circle cx="299.5" cy="369.0" r="7.5" fill="#B04224"/>
-<circle cx="328.5" cy="369.0" r="7.5" fill="#B04224"/>
-<polygon points="148.0,186.0 364.0,186.0 389.0,250.0 123.0,250.0" fill="#F48C5C" stroke="#F48C5C" stroke-width="26.0" stroke-linejoin="round"/>
-<ellipse cx="256.0" cy="218.0" rx="104.0" ry="27.0" fill="#262F44"/>
-<g filter="url(#blur)">
-<ellipse cx="256.0" cy="200.0" rx="12.6" ry="8.1" fill="#FFBE5C" opacity="0.35"/>
-<ellipse cx="297.0" cy="202.4" rx="12.6" ry="8.1" fill="#FCB358" opacity="0.35"/>
-<ellipse cx="327.0" cy="209.0" rx="12.6" ry="8.1" fill="#F9A854" opacity="0.35"/>
-<ellipse cx="338.0" cy="218.0" rx="12.6" ry="8.1" fill="#F69D50" opacity="0.35"/>
-<ellipse cx="327.0" cy="227.0" rx="12.6" ry="8.1" fill="#F4924C" opacity="0.35"/>
-<ellipse cx="297.0" cy="233.6" rx="12.6" ry="8.1" fill="#F18749" opacity="0.35"/>
-<ellipse cx="256.0" cy="236.0" rx="12.6" ry="8.1" fill="#EE7C45" opacity="0.35"/>
-<ellipse cx="215.0" cy="233.6" rx="12.6" ry="8.1" fill="#EB7141" opacity="0.35"/>
-<ellipse cx="185.0" cy="227.0" rx="12.6" ry="8.1" fill="#E8663D" opacity="0.35"/>
-</g>
-<ellipse cx="256.0" cy="200.0" rx="7.0" ry="4.5" fill="#FFBE5C"/>
-<ellipse cx="297.0" cy="202.4" rx="7.0" ry="4.5" fill="#FCB358"/>
-<ellipse cx="327.0" cy="209.0" rx="7.0" ry="4.5" fill="#F9A854"/>
-<ellipse cx="338.0" cy="218.0" rx="7.0" ry="4.5" fill="#F69D50"/>
-<ellipse cx="327.0" cy="227.0" rx="7.0" ry="4.5" fill="#F4924C"/>
-<ellipse cx="297.0" cy="233.6" rx="7.0" ry="4.5" fill="#F18749"/>
-<ellipse cx="256.0" cy="236.0" rx="7.0" ry="4.5" fill="#EE7C45"/>
-<ellipse cx="215.0" cy="233.6" rx="7.0" ry="4.5" fill="#EB7141"/>
-<ellipse cx="185.0" cy="227.0" rx="7.0" ry="4.5" fill="#E8663D"/>
-<ellipse cx="174.0" cy="218.0" rx="7.0" ry="4.5" fill="#604042"/>
-<ellipse cx="185.0" cy="209.0" rx="7.0" ry="4.5" fill="#604042"/>
-<ellipse cx="215.0" cy="202.4" rx="7.0" ry="4.5" fill="#604042"/>
-<ellipse cx="256.0" cy="218.0" rx="31.0" ry="8.0" fill="#FFF4E6"/>
-</g>
+<path d="M150 232 Q256 120 362 232" fill="none" stroke-width="7" stroke-linecap="round" stroke="#8A7F78"/>
+<rect x="120" y="228" width="272" height="184" rx="36" fill="#E8663D"/>
+<rect x="197" y="214" width="30" height="22" rx="7" fill="#B04224"/>
+<rect x="241" y="214" width="30" height="22" rx="7" fill="#B04224"/>
+<rect x="285" y="214" width="30" height="22" rx="7" fill="#B04224"/>
+<path d="M415.7 261.9 A170 170 0 0 1 415.7 378.1" fill="none" stroke-width="14" stroke-linecap="round" stroke="#FFBE5C"/>
+<path d="M96.3 378.1 A170 170 0 0 1 96.3 261.9" fill="none" stroke-width="14" stroke-linecap="round" stroke="#FFBE5C"/>
+<path d="M445.3 269.3 A196 196 0 0 1 445.3 370.7" fill="none" stroke-width="14" stroke-linecap="round" stroke="#FFBE5C"/>
+<path d="M66.7 370.7 A196 196 0 0 1 66.7 269.3" fill="none" stroke-width="14" stroke-linecap="round" stroke="#FFBE5C"/>
+<circle cx="256.0" cy="262.0" r="9" fill="#FFF4E6"/>
+<circle cx="285.0" cy="269.8" r="9" fill="#FFF4E6"/>
+<circle cx="306.2" cy="291.0" r="9" fill="#FFF4E6"/>
+<circle cx="314.0" cy="320.0" r="9" fill="#FFF4E6"/>
+<circle cx="306.2" cy="349.0" r="9" fill="#FFF4E6"/>
+<circle cx="285.0" cy="370.2" r="9" fill="#FFF4E6"/>
+<circle cx="256.0" cy="378.0" r="9" fill="#FFF4E6"/>
+<circle cx="227.0" cy="370.2" r="9" fill="#FFF4E6"/>
+<circle cx="205.8" cy="349.0" r="9" fill="#FFF4E6"/>
+<circle cx="198.0" cy="320.0" r="9" fill="#B04224"/>
+<circle cx="205.8" cy="291.0" r="9" fill="#B04224"/>
+<circle cx="227.0" cy="269.8" r="9" fill="#B04224"/>
 </svg>
