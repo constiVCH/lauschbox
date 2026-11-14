@@ -1,10 +1,8 @@
 """Hardware der Box: NFC (PN532 über UART), 3 Taster und Verstärker-Stummschaltung (GPIO über gpiod),
 LED-Ring (WS2812 über SPI).
 
-Läuft auf dem Raspberry Pi und dem Banana Pi M2 Zero; das Board wird beim Start erkannt (BOARD). Die Stiftleiste
-ist bei beiden gleich belegt, nur die Namen der Leitungen unterscheiden sich (siehe PINS).
 Jedes Teil startet für sich. Fehlt eins, läuft der Rest weiter und status() meldet den Fehler.
-Die Pinbelegung steht in hardware/teileliste.md und docs/bananapi-m2-zero.md.
+Die Pinbelegung steht in hardware/teileliste.md.
 """
 from __future__ import annotations
 
@@ -23,29 +21,10 @@ NUM_LEDS = 24
 HOLD_S = 1.0
 
 
-def detect_board() -> str:
-    try:
-        model = Path("/proc/device-tree/model").read_text(errors="ignore").lower()
-    except OSError:
-        return "pi"
-    return "bpi-m2-zero" if "m2-zero" in model or "m2 zero" in model else "pi"
-
-
-# Je Board: serielle Schnittstelle (Pins 8/10) und GPIO als (Anfang des Chip-Labels, Leitung, Name).
-# Das Chip-Label zeigt `gpiodetect`. Beim H3 liegen PA… auf dem Haupt-Chip, PL… auf dem zweiten (R_PIO).
-PINS = {
-    "pi": {
-        "uart": "/dev/serial0",
-        "buttons": {"play_pause": ("pinctrl-", 5, "GPIO5"), "lauter": ("pinctrl-", 6, "GPIO6"), "leiser": ("pinctrl-", 13, "GPIO13")},
-        "amp": ("pinctrl-", 16, "GPIO16"),
-    },
-    "bpi-m2-zero": {
-        "uart": "/dev/ttyS3",  # UART3, Overlay uart3
-        "buttons": {"play_pause": ("1c20800", 7, "PA7"), "lauter": ("1c20800", 8, "PA8"), "leiser": ("1c20800", 9, "PA9")},
-        "amp": ("1f02c00", 4, "PL4"),
-    },
-}
-BOARD = detect_board()
+UART_PORT = "/dev/serial0"  # Pins 8/10
+BUTTON_PINS = {"play_pause": 5, "lauter": 6, "leiser": 13}  # BCM-Nummern, Pins 29/31/33
+AMP_PIN = 16  # Pin 36
+GPIO_CHIP = "pinctrl-"  # Label des GPIO-Chips der Stiftleiste (Zero 2 W: pinctrl-bcm2835, Pi 5: pinctrl-rp1)
 
 
 def _chip_path(label_start: str) -> str:
@@ -83,12 +62,11 @@ def open_pn532(mode: str = "auto"):
             import serial
             from adafruit_pn532.uart import PN532_UART
 
-            uart = PINS[BOARD]["uart"]
-            port = serial.Serial(uart, 115200, timeout=0.1)
+            port = serial.Serial(UART_PORT, 115200, timeout=0.1)
             try:
                 pn = PN532_UART(port, debug=False)
                 _, ver, rev, _ = pn.firmware_version
-                return pn, f"PN532 Firmware {ver}.{rev} über UART ({uart})"
+                return pn, f"PN532 Firmware {ver}.{rev} über UART ({UART_PORT})"
             except Exception:
                 port.close()
                 raise
@@ -203,9 +181,8 @@ class Buttons(Part):
             # Bei einem erneuten Versuch erst die schon belegten Leitungen freigeben
             if getattr(self, "_req", None):
                 self._req.release()
-            pins = PINS[BOARD]["buttons"]
-            chip = _chip_path(next(iter(pins.values()))[0])
-            self._names = {line: name for name, (_, line, _) in pins.items()}
+            chip = _chip_path(GPIO_CHIP)
+            self._names = {line: name for name, line in BUTTON_PINS.items()}
             settings = gpiod.LineSettings(
                 direction=Direction.INPUT, edge_detection=Edge.BOTH, bias=Bias.PULL_UP, debounce_period=timedelta(milliseconds=40)
             )
@@ -215,7 +192,7 @@ class Buttons(Part):
             return
         self._timers: dict[str, threading.Timer] = {}
         threading.Thread(target=self._watch, args=(self._req,), name="tasten", daemon=True).start()
-        self.ok, self.detail = True, ", ".join(label for _, _, label in pins.values())
+        self.ok, self.detail = True, "GPIO " + ", ".join(str(p) for p in BUTTON_PINS.values())
 
     def _watch(self, req) -> None:
         """Flanken lesen: fallend = gedrückt (Pull-up, Taster gegen GND), steigend = losgelassen."""
@@ -279,7 +256,7 @@ class Buttons(Part):
 
 
 class Amp(Part):
-    """Stummschaltung des MAX98357A über seinen SD-Pin (Pin 36: GPIO16 am Pi, PL4 am Banana Pi).
+    """Stummschaltung des MAX98357A über seinen SD-Pin an GPIO16 (Pin 36).
 
     Stumm = Pin auf LOW. An = Pin freigeben (Eingang): dann zieht der Widerstand auf dem Board SD hoch und der
     Verstärker mischt links + rechts. Niemals HIGH treiben: Bei 3,3 V schaltet der Chip auf „nur linker Kanal“.
@@ -295,14 +272,14 @@ class Amp(Part):
             import gpiod
             from gpiod.line import Bias, Direction, Value
 
-            label_start, self._line, name = PINS[BOARD]["amp"]
+            self._line = AMP_PIN
             self._off = gpiod.LineSettings(direction=Direction.OUTPUT, output_value=Value.INACTIVE)
             self._on = gpiod.LineSettings(direction=Direction.INPUT, bias=Bias.DISABLED)
             if self._req:
                 self._req.release()
-            self._req = gpiod.request_lines(_chip_path(label_start), consumer="lauschbox-verstaerker", config={self._line: self._off})
+            self._req = gpiod.request_lines(_chip_path(GPIO_CHIP), consumer="lauschbox-verstaerker", config={self._line: self._off})
             self.muted = True
-            self.ok, self.detail = True, f"{name} an SD: stumm, solange nichts spielt"
+            self.ok, self.detail = True, f"GPIO{AMP_PIN} an SD: stumm, solange nichts spielt"
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             log.warning("Verstärker-Stummschaltung: %s", self.detail)
@@ -327,21 +304,12 @@ class LedRing(Part):
 
     def start(self) -> None:
         try:
+            import board
             import neopixel_spi
 
-            if BOARD == "bpi-m2-zero":
-                # board.SPI() wäre beim H3 SPI1 (Pins 8/10, belegt vom NFC-Leser); der Ring hängt an SPI0 (Pin 19 = PC0)
-                import busio
-                from adafruit_blinka.microcontroller.allwinner.h3 import pin
-
-                spi, where = busio.SPI(pin.PC2, MOSI=pin.PC0), "SPI0 (Pin 19, PC0)"
-            else:
-                import board
-
-                spi, where = board.SPI(), "SPI0 (Pin 19, GPIO10)"
-            self.pixels = neopixel_spi.NeoPixel_SPI(spi, NUM_LEDS, brightness=1.0, auto_write=False)
+            self.pixels = neopixel_spi.NeoPixel_SPI(board.SPI(), NUM_LEDS, brightness=1.0, auto_write=False)
             self.show([(0, 0, 0)] * NUM_LEDS)
-            self.ok, self.detail = True, f"{NUM_LEDS} LEDs an {where}"
+            self.ok, self.detail = True, f"{NUM_LEDS} LEDs an SPI0 (GPIO10)"
         except Exception as e:  # noqa: BLE001
             self.detail = f"{type(e).__name__}: {e}"
             log.warning("LEDs: %s", self.detail)

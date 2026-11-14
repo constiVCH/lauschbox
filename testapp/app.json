@@ -41,7 +41,15 @@
           "hidden": true
         }
       ],
-      "react-native-nfc-manager"
+      "react-native-nfc-manager",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "Die Lauschbox per Bluetooth ins WLAN bringen."
+        }
+      ]
     ],
     "scheme": "lauschbox",
     "backgroundColor": "#1B2333",

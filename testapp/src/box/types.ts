@@ -85,6 +85,8 @@ export type KidView = {
   bedtimeTo: string;
   bedtimeMaxVolume: number;
   knownTokensOnly: boolean;
+  /** Aus: Einstellungen und Kindermodus ohne Eltern-PIN */
+  pinRequired: boolean;
 };
 
 export type BoxView = {

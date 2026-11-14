@@ -1,4 +1,3 @@
-import { baseUrl } from '@/hw/hardware';
 
 import { KIND_LABELS, type BoxApi, type BoxView, type Medium, type Notice, type PlayMode, type SpotifyAccount } from './types';
 
@@ -59,6 +58,7 @@ type RawState = {
     bedtime_to: string;
     bedtime_max_volume: number;
     known_tokens_only: boolean;
+    pin_required?: boolean;
   };
   box: { name: string; version: string; simulated: boolean; hardware?: Record<string, { ok: boolean; detail: string }> };
 };
@@ -74,6 +74,12 @@ const medium = (m: RawMedium): Medium => ({
   durationS: m.duration_ms !== undefined ? m.duration_ms / 1000 : undefined,
   sizeBytes: m.size,
 });
+
+/** „192.168.1.5“ oder „box.local:8080“ → http://…:8080 */
+export function baseUrl(host: string) {
+  const h = host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  return `http://${h.includes(':') ? h : `${h}:8080`}`;
+}
 
 /** local:<id> → <id> */
 const localId = (uri: string) => encodeURIComponent(uri.replace(/^local:/, ''));
@@ -268,6 +274,7 @@ export class RemoteBox {
         bedtimeTo: r.kid.bedtime_to,
         bedtimeMaxVolume: r.kid.bedtime_max_volume,
         knownTokensOnly: r.kid.known_tokens_only,
+        pinRequired: r.kid.pin_required ?? true, // ältere Box-Software kennt das nicht
       },
       led: r.led,
       notice: this.localNotice ?? r.notice,
@@ -367,6 +374,7 @@ export class RemoteBox {
         bedtimeTo: 'bedtime_to',
         bedtimeMaxVolume: 'bedtime_max_volume',
         knownTokensOnly: 'known_tokens_only',
+        pinRequired: 'pin_required',
         pin: 'pin',
       };
       const body = Object.fromEntries(Object.entries(patch).map(([k, v]) => [map[k], v]));

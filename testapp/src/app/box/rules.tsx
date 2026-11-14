@@ -11,13 +11,13 @@ import { Button, Card, Row, Section, SwitchRow, Txt } from '@/components/ui';
 import { radius, space, type, useColors } from '@/theme';
 
 export default function RulesTab() {
-  const [pin, lock] = useParentPin();
+  const [pin, lock, required] = useParentPin();
   return (
     <Screen
       title="Kindermodus"
       subtitle={pin ? 'Regeln für die Box' : 'Mit Eltern-PIN geschützt'}
       leading={<BackToStart />}
-      trailing={pin ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
+      trailing={pin && required ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
     >
       {pin ? <Rules pin={pin} onPinChanged={lock} /> : <PinGate onUnlock={lock} />}
     </Screen>
@@ -129,7 +129,18 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
         </Section>
       </View>
 
-      <Section title="Eltern-PIN" footer="Gilt für Kindermodus und Einstellungen. Ab Werk 1234.">
+      <Section
+        title="Eltern-PIN"
+        footer={
+          k.pinRequired
+            ? 'Gilt für Kindermodus und Einstellungen. Ab Werk 1234.'
+            : 'Ohne PIN kann jeder mit der App alles ändern. Das Kind bedient die Box ohne App, die Regeln gelten trotzdem.'
+        }
+      >
+        <Card padded={false} style={{ paddingHorizontal: space.lg }}>
+          <SwitchRow first title="PIN verlangen" icon="lock-closed" iconColor={c.textTertiary} value={k.pinRequired} onChange={(v) => set({ pinRequired: v })} />
+        </Card>
+        {k.pinRequired && (
           <Card style={styles.pinRow}>
             <TextInput
               value={newPin}
@@ -144,6 +155,7 @@ function Rules({ pin, onPinChanged }: { pin: string; onPinChanged: (pin: string)
             />
             <Button label="Ändern" icon="key" compact disabled={newPin.length !== 4} onPress={changePin} />
           </Card>
+        )}
       </Section>
     </>
   );

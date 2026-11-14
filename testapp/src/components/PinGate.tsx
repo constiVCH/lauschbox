@@ -15,9 +15,13 @@ import { Txt } from './ui';
 const unlocked = new Map<string, string>();
 const listeners = new Set<() => void>();
 
-/** [PIN oder null, setzen/sperren]. Gilt für die verbundene Box, bis die App beendet wird. */
-export function useParentPin(): [string | null, (pin: string | null) => void] {
+// Steht für „PIN abgeschaltet“: Die Box prüft dann keine PIN, die App schickt diesen Wert nur mit
+const PIN_OFF = 'aus';
+
+/** [PIN oder null, setzen/sperren, PIN verlangt?]. Gilt für die verbundene Box, bis die App beendet wird. */
+export function useParentPin(): [string | null, (pin: string | null) => void, boolean] {
   const { view } = useBox();
+  const required = view.kid.pinRequired;
   const key = view.name;
   const pin = useSyncExternalStore(
     (fn) => {
@@ -32,7 +36,7 @@ export function useParentPin(): [string | null, (pin: string | null) => void] {
     else unlocked.delete(key);
     listeners.forEach((fn) => fn());
   };
-  return [pin, set];
+  return [required ? pin : PIN_OFF, set, required];
 }
 
 export function PinGate({ onUnlock }: { onUnlock: (pin: string) => void }) {

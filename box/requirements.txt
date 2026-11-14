@@ -2,6 +2,7 @@
 aiohttp>=3.10
 zeroconf>=0.130
 mutagen>=1.47      # Länge eigener Audiodateien
+bless>=0.2.6       # WLAN-Einrichtung per Bluetooth (BlueZ)
 
 # Hardware (fehlen sie, läuft der Rest trotzdem). Raspberry Pi und Banana Pi M2 Zero gleichermaßen.
 adafruit-circuitpython-pn532

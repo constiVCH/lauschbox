@@ -77,6 +77,7 @@ class Engine:
         self.standby = False  # Ruhemodus: LED-Ring aus, bis jemand die Box bedient
         self._active_at = time.monotonic()
         self.amp = None  # Stummschaltung des Verstärkers (hardware.Amp), falls angeschlossen
+        self.wifi_setup = None  # WLAN-Einrichtung per Bluetooth (wifi_setup.WifiSetup), auf der echten Box
         self._amp_task: asyncio.Task | None = None
         # Woher Titellisten kommen; die API setzt hier zusätzlich die Spotify Web API als Rückfall ein
         self.track_source: Callable[[str], Awaitable[list[dict] | None]] = player.context_tracks
@@ -549,7 +550,7 @@ class Engine:
         return kid
 
     def check_pin(self, pin: str) -> bool:
-        return pin == self.kid.pin
+        return not self.kid.pin_required or pin == self.kid.pin
 
     def dismiss_notice(self, notice_id: int) -> None:
         if self.notice and self.notice["id"] == notice_id:
@@ -725,6 +726,10 @@ class Engine:
     def led_state(self) -> dict:
         if self._flash and time.monotonic() < self._flash_until:
             led = dict(self._flash)
+        elif self.wifi_setup and self.wifi_setup.active:
+            # Kein WLAN, Einrichtung per Bluetooth: blau pulsierend, nach dem Druck auf Play blau leuchtend
+            authorized = self.wifi_setup.state != 1
+            led = {"mode": "playing" if authorized else "learn", "color": LED_COLORS["learn"], "fill": 1.0}
         elif self.standby:
             led = {"mode": "off", "color": "#000000", "fill": 0.0}
         elif self.learning:

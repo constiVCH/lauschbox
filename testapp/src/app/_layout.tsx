@@ -15,12 +15,12 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="box" />
-          <Stack.Screen name="hardware" />
           <Stack.Screen name="anleitung" />
           <Stack.Screen name="impressum" />
           <Stack.Screen name="token-edit" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
           <Stack.Screen name="spotify-setup" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
           <Stack.Screen name="dateien" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
+          <Stack.Screen name="wlan" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
           <Stack.Screen name="log" options={{ presentation: 'modal', contentStyle: { backgroundColor: c.bg } }} />
         </Stack>
       </ActiveBoxProvider>

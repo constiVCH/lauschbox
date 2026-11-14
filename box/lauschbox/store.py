@@ -74,6 +74,8 @@ class Settings:
 class KidMode:
     enabled: bool = True
     pin: str = "1234"
+    # Aus: Einstellungen und Kindermodus ohne PIN (das Kind hat keine App)
+    pin_required: bool = True
     max_volume: int = 60
     no_autoplay: bool = True
     bedtime_enabled: bool = True

@@ -8,10 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setActiveBox } from '@/box/BoxContext';
 import { Button, Card, Txt } from '@/components/ui';
-import { load, save } from '@/storage';
+import { HOST_KEY, load, save } from '@/storage';
 import { radius, space, type, useColors } from '@/theme';
-
-const HOST_KEY = 'hw.host';
 
 export default function Start() {
   const c = useColors();
@@ -28,11 +26,6 @@ export default function Start() {
     save(HOST_KEY, host.trim());
     setActiveBox(host.trim());
     router.push('/box' as Href);
-  };
-  const testHardware = () => {
-    if (!valid) return;
-    save(HOST_KEY, host.trim());
-    router.push({ pathname: '/hardware', params: { host: host.trim() } });
   };
 
   return (
@@ -82,17 +75,16 @@ export default function Start() {
               style={[type.body, styles.input, { color: c.text, backgroundColor: c.fill }]}
             />
             <Txt variant="footnote" color="tertiary">
-              Die IP zeigt hostname -I auf dem Pi. Port 8080 ist voreingestellt, sonst IP:Port.
+              Die Adresse zeigt dein Router oder die WLAN-Einrichtung per Bluetooth. Port 8080 ist voreingestellt, sonst IP:Port.
             </Txt>
           </View>
           <Button label="Mit Box verbinden" icon="wifi" onPress={openBox} disabled={!valid} />
           <Button
-            label="Hardware testen"
-            icon="hardware-chip"
+            label="Neue Box ins WLAN bringen"
+            icon="bluetooth"
             kind="secondary"
-            onPress={testHardware}
-            disabled={!valid}
-            accessibilityHint="Braucht auf dem Pi den Testserver spikes/hwtest_server.py statt der Box-Software"
+            onPress={() => router.push('/wlan' as Href)}
+            accessibilityHint="Per Bluetooth, wenn die Box noch kein WLAN hat"
           />
         </Card>
 

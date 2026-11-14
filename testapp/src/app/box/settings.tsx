@@ -16,13 +16,13 @@ import { radius, space, useColors } from '@/theme';
 
 /** Alles, wofür man sonst ein Terminal auf dem Pi bräuchte. Mit Eltern-PIN geschützt. */
 export default function SettingsTab() {
-  const [pin, lock] = useParentPin();
+  const [pin, lock, required] = useParentPin();
   return (
     <Screen
       title="Einstellungen"
       subtitle={pin ? 'Spotify und Box verwalten' : 'Mit Eltern-PIN geschützt'}
       leading={<BackToStart />}
-      trailing={pin ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
+      trailing={pin && required ? <Button label="Sperren" icon="lock-closed" compact kind="secondary" onPress={() => lock(null)} /> : undefined}
     >
       {pin ? <Settings pin={pin} /> : <PinGate onUnlock={lock} />}
     </Screen>

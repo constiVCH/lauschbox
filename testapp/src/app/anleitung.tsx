@@ -11,8 +11,11 @@ export default function Anleitung() {
         <Card style={{ gap: space.sm }}>
           <Txt variant="body">Box und Handy müssen im selben WLAN sein.</Txt>
           <Txt variant="body" color="secondary">
-            Auf dem Start-Bildschirm die Adresse der Box eintragen (z. B. 192.168.178.42) und „Mit Box verbinden“ tippen.
-            Die Adresse zeigt dein Router oder auf der Box der Befehl hostname -I.
+            Hat die Box noch kein WLAN, pulsiert ihr Ring nach einer halben Minute blau. Dann auf dem Start-Bildschirm „Neue Box
+            ins WLAN bringen“ tippen, an der Box kurz Play drücken und WLAN-Name und Passwort eingeben.
+          </Txt>
+          <Txt variant="body" color="secondary">
+            Sonst die Adresse der Box eintragen (z. B. 192.168.178.42) und „Mit Box verbinden“ tippen. Die Adresse zeigt dein Router.
           </Txt>
           <Txt variant="body" color="secondary">
             Spotify anmelden: Tab „Einstellungen“ → Spotify. Den angezeigten Code auf spotify.com/pair eingeben. Für die Suche
@@ -46,12 +49,13 @@ export default function Anleitung() {
 
       <Section title="4. Der LED-Ring">
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-          <Row first title="Ein wandernder Punkt" subtitle="Bereit, kein Token aufgelegt" icon="ellipse" iconColor="#8A93A6" />
+          <Row first title="Ein Lichtpunkt mit Schweif kreist" subtitle="Bereit, kein Token aufgelegt" icon="ellipse" iconColor="#8A93A6" />
           <Row title="Ring ganz aus" subtitle="Ruhemodus: Taste drücken oder Token auflegen weckt die Box" icon="ellipse-outline" iconColor="#3A4152" />
           <Row title="Ring in Token-Farbe" subtitle="Spielt; der Ring füllt sich mit dem Fortschritt" icon="ellipse" iconColor="#E8663D" />
           <Row title="Token-Farbe pulsiert" subtitle="Pause" icon="ellipse" iconColor="#E8663D" />
           <Row title="Weiß füllt sich kurz" subtitle="Lautstärke" icon="ellipse" iconColor="#B8BFCC" />
-          <Row title="Blau pulsiert" subtitle="Lernmodus: leeren Token auflegen" icon="ellipse" iconColor="#5B9BFF" />
+          <Row title="Blau pulsiert" subtitle="Lernmodus: leeren Token auflegen. Oder: kein WLAN, Einrichtung per Bluetooth wartet" icon="ellipse" iconColor="#5B9BFF" />
+          <Row title="Blau leuchtet ruhig" subtitle="WLAN-Einrichtung freigegeben, weiter in der App" icon="ellipse" iconColor="#5B9BFF" />
           <Row title="Orange blinkt" subtitle="Unbekannter Token" icon="ellipse" iconColor="#FF9F40" />
           <Row title="Lila pulsiert" subtitle="Schlafenszeit: startet erst morgen" icon="ellipse" iconColor="#B07CFF" />
           <Row title="Rot blinkt" subtitle="Tasten gesperrt oder Fehler" icon="ellipse" iconColor="#FF5A4E" />
@@ -59,7 +63,7 @@ export default function Anleitung() {
         </Card>
       </Section>
 
-      <Section title="5. Kindermodus" footer="Die Eltern-PIN ist ab Werk 1234. Bitte im Tab „Kindermodus“ ändern.">
+      <Section title="5. Kindermodus" footer="Die Eltern-PIN ist ab Werk 1234. Im Tab „Kindermodus“ lässt sie sich ändern oder abschalten.">
         <Card style={{ gap: space.sm }}>
           <Txt variant="body" color="secondary">
             Maximallautstärke, Schlafenszeit (neue Geschichten starten dann nicht, die Box wird leiser und die LEDs dunkler),

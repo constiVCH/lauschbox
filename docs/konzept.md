@@ -3,23 +3,23 @@
 ## Architektur
 
 ```
-┌───────────────── Box (Raspberry Pi Zero W) ─────────────────┐
+┌──────────────── Box (Raspberry Pi Zero 2 W) ────────────────┐
 │  box-daemon (Python, asyncio)                               │
 │   ├─ NfcService      PN532 pollt → token_placed/removed     │
 │   ├─ InputService    3 Taster (kurz/lang)                   │
 │   ├─ LedService      WS2812-Ring: Zustände, Lautstärke, Akku│
-│   ├─ PowerService    PiSugar: Ladestand, lädt?, Netz?       │
+│   ├─ (später) Akku   PiSugar: Ladestand, lädt?, Netz?       │
 │   ├─ Player          SpotifyPlayer (go-librespot-API)       │
 │   │                  LocalPlayer (mpv, JSON-IPC)            │
-│   ├─ MediaLibrary    lokale Medien auf der SD-Karte         │
+│   ├─ media           eigene Dateien auf der SD-Karte        │
 │   ├─ Rules           Kindermodus, Max-Lautstärke, Timer     │
 │   ├─ Store (SQLite)  Tokens, Medien, Fortschritt, Einst.    │
 │   └─ API (aiohttp)   REST + WebSocket, mDNS-Announce        │
 │  go-librespot        Connect-Gerät + API auf localhost:3678 │
-│  mpv                 lokale Wiedergabe, IPC /run/mpv.sock   │
-│  BLE-Provisioning    WLAN-Daten aus der App empfangen       │
+│  mpv                 eigene Dateien, JSON-IPC (Unix-Socket) │
+│   └─ wifi_setup      WLAN per Bluetooth (Improv Wi-Fi)      │
 └─────────────────────────────────────────────────────────────┘
-                 ▲ WLAN (mDNS _lauschbox._tcp) / BLE
+                 ▲ WLAN (REST + WebSocket) / Bluetooth LE
 ┌────────────────┴────────────────┐
 │ App (Expo, iOS/Android)         │
 └─────────────────────────────────┘
@@ -47,7 +47,7 @@
    - **Meine:** eigene Playlists und gespeicherte Alben aus dem Spotify-Konto der Box.
    - **Link:** Spotify-Link einfügen (in Spotify: Teilen → Link kopieren). Die Box holt Titel und Cover über den
      öffentlichen oEmbed-Dienst von Spotify; das geht auch, wenn die Suche nicht verfügbar ist.
-   - später: lokales Medium wählen bzw. hochladen.
+   - **Dateien:** eigenes Album von der SD-Karte der Box wählen oder vom Handy hochladen.
 4. Name + Farbe vergeben, Wiedergabe wählen (der Reihe nach mit Weiterhören oder zufällig) → speichern. Liegt der neue Token noch auf, spielt er sofort (Bestätigung; Regeln gelten wie beim Auflegen).
 
 **Ein Token = ein ganzer Inhalt**
@@ -96,7 +96,7 @@ spielen die Token trotzdem weiter.
 | Leiser | leiser | Titel zurück |
 | Lauter + Leiser | | Tasten sperren/entsperren |
 
-## Lokale Medien & Offline-Betrieb
+## Eigene Dateien & Offline-Betrieb
 
 Ziel: Die Box funktioniert auch **ganz ohne WLAN**, z. B. im Auto, im Urlaub oder bei Großeltern ohne Netz.
 Dafür gibt es neben Spotify eine zweite Quelle: Audiodateien, die auf der SD-Karte der Box liegen.
@@ -105,62 +105,43 @@ Dafür gibt es neben Spotify eine zweite Quelle: Audiodateien, die auf der SD-Ka
 
 | | Offline |
 |---|---|
-| Token mit lokalem Medium | spielt normal, inkl. Fortsetzen, Tasten, Lautstärke |
-| Token mit Spotify-Inhalt | spielt **nicht** (LED-Signal „kein Netz“: Ring 2× langsam violett) |
-| Kindermodus, Sleep-Timer, Schlafenszeit | funktionieren (Uhrzeit aus der RTC des PiSugar, siehe unten) |
-| Akku, Herunterfahren | funktionieren |
-| App-Steuerung | nur über den Hotspot der Box (optional, siehe unten) |
+| Token mit eigenen Dateien | spielt normal, inkl. Fortsetzen, Tasten, Lautstärke |
+| Token mit Spotify-Inhalt | spielt **nicht** (Ring blinkt rot, Hinweis in der App) |
+| Kindermodus, Sleep-Timer, Schlafenszeit | funktionieren; die Schlafenszeit braucht die Uhrzeit (später aus der RTC des PiSugar, siehe unten) |
+| App-Steuerung | nein (WLAN neu einrichten geht per Bluetooth) |
 | Neue Inhalte aufspielen | nein, nur im WLAN |
 
 Spotify-Inhalte lassen sich **nicht** offline verfügbar machen: go-librespot kann keine Offline-Downloads, und Mitschneiden
-verstößt gegen die Nutzungsbedingungen. Wer unterwegs hören will, legt dafür lokale Medien an.
+verstößt gegen die Nutzungsbedingungen. Wer unterwegs hören will, lädt dafür eigene Dateien hoch.
 
-**Was ein lokales Medium ist**
-- Ein Medium = ein Ordner (eine Hörspielfolge, ein Hörbuch, ein Album), z. B. `/var/lib/lauschbox/media/<id>/`.
-- Titelreihenfolge: Track-Nummer aus den Tags, sonst Dateiname (natürlich sortiert, `2` vor `10`).
-- Formate: MP3, M4A/AAC, OGG/Opus, FLAC, jeweils **ohne Kopierschutz**. Quellen z. B. selbst gerippte CDs,
-  DRM-freie Käufe, eigene Aufnahmen.
-- Die Box wandelt nicht um (zu viel CPU für den Zero W), sondern spielt die Dateien so, wie sie sind.
-- Metadaten (Titel, Dauer, Cover) liest die Box beim Hochladen einmal aus (`mutagen`, reines Python) und legt sie im Store ab.
-  Cover: eingebettetes Bild oder `cover.jpg`/`folder.jpg`, auf 300 px verkleinert gespeichert.
-- Speicherbedarf: 128 kbit/s ≈ 58 MB pro Stunde. Auf einer 32-GB-Karte bleiben nach System und Reserve ca. 25 GB,
-  also über 400 Stunden. Die App zeigt den freien Speicher an und verhindert Uploads unter 1 GB Rest.
+**Eigene Dateien (so gebaut)**
+- Ein Album = ein Ordner auf der SD-Karte: `~/.local/share/lauschbox/media/<id>/`, Titel in `title.txt`.
+  Ein Token zeigt darauf mit der URI `local:<id>`.
+- Reihenfolge nach Dateiname. Formate: MP3, M4A/AAC, OGG/Opus, FLAC, WAV, jeweils **ohne Kopierschutz**
+  (selbst gerippte CDs, DRM-freie Käufe, eigene Aufnahmen). Die Box wandelt nichts um.
+- Längen liest die Box aus den Dateiköpfen (`mutagen`); damit zeigen Ring und App den Fortschritt im ganzen Album.
+- Hochladen in der App (Einstellungen → Eigene Dateien, oder beim Token unter „Dateien“): eine Datei je Anfrage,
+  gestreamt, damit auch große Hörbücher nicht in den Speicher müssen. 300 MB bleiben immer frei.
+- Speicherbedarf: 128 kbit/s ≈ 58 MB pro Stunde.
 
 **Wiedergabe: mpv**
-- `mpv --idle --no-video --input-ipc-server=/run/mpv.sock` läuft dauerhaft als eigener Dienst.
-- Der box-daemon steuert ihn über JSON-IPC: `loadfile`, `playlist-play-index`, `seek`, `set_property pause/volume`,
-  und liest `time-pos`/`playlist-pos` für den Hörstand.
-- Beide Player hängen hinter derselben Schnittstelle (`play`, `pause`, `resume`, `next`, `prev`, `seek`, `volume`, `position`).
-  Regeln, Tasten, LEDs und Fortschritt kennen die Quelle nicht.
-- Es läuft immer nur ein Player. Beim Wechsel der Quelle pausiert der box-daemon den anderen.
-- Audio-Ausgabe: go-librespot und mpv teilen sich das I2S-Gerät über ALSA `dmix` (oder der jeweils andere gibt das Gerät frei).
-  Das klärt der mpv-Spike.
+- Der box-daemon startet mpv bei Bedarf (`--idle`) und steuert es über JSON-IPC (Unix-Socket).
+- `MixPlayer` wählt je nach URI Spotify (go-librespot) oder mpv. Regeln, Tasten, LEDs und Hörstand kennen die Quelle nicht.
+- Der Verstärker (`plughw`) verträgt nur ein Programm gleichzeitig. Deshalb pausiert die Box vor dem Wechsel den anderen
+  Player: go-librespot gibt das Gerät beim Pausieren frei, mpv wird bei Pause ganz gestoppt (die Stelle merkt sich die Box).
 
-**Inhalte auf die Box bringen**
-1. **Über die App (Standard):** „Lokales Medium“ → Dateien vom Handy wählen → Upload über WLAN an die Box-API.
-   Upload in Teilen (Chunks à 4 MB) mit Fortsetzen nach Abbruch. Der Zero W schafft im WLAN ca. 2–3 MB/s,
-   eine Stunde Hörspiel ist also in rund 30 s übertragen.
-2. **Vom Rechner (für Bastler):** Samba-Freigabe `lauschbox-import` (optional, standardmäßig aus). Neue Ordner dort
-   übernimmt die Box beim nächsten Scan als Medien.
-
-**Uhrzeit ohne Internet**
+**Uhrzeit ohne Internet (mit dem Akku, noch nicht gebaut)**
 Der Pi hat keine eigene Uhr. Ohne NTP wüsste die Box nach dem Booten nicht, wie spät es ist, und
-Schlafenszeit und Tagesbudget wären falsch. Lösung: die **RTC des PiSugar 3**.
+die Schlafenszeit wäre falsch. Lösung: die **RTC des PiSugar 3 Air**.
 - Beim Booten: Systemzeit aus der RTC setzen (`pisugar-server`: `rtc_rtc2pi`).
 - Sobald NTP synchronisiert hat: RTC nachstellen (`rtc_pi2rtc`).
 - Ist die Uhrzeit unbekannt (RTC nie gestellt), gelten zeitabhängige Regeln vorsichtig: Lautstärke-Deckel der
-  Schlafenszeit aktiv, Tagesbudget zählt ab dem Booten.
+  Schlafenszeit aktiv.
 
 **Booten ohne Netz**
 - box-daemon wartet beim Start **nicht** auf das Netz. NFC, Tasten, LEDs und lokale Wiedergabe sind sofort bereit.
 - go-librespot verbindet sich später selbst, wenn WLAN da ist. Der box-daemon fragt dessen Status ab
   und behandelt Spotify bis dahin als „nicht verfügbar“.
-
-**App-Steuerung ohne Router (optional, später)**
-Findet die Box nach 2 Minuten kein bekanntes WLAN, öffnet sie einen eigenen Hotspot (`Lauschbox-XXXX`, WPA2,
-Passwort auf dem Etikett und in der App). Die App verbindet sich damit und spricht dieselbe API wie sonst (Box unter `192.168.4.1`).
-Sobald ein bekanntes WLAN wieder erreichbar ist, wechselt die Box zurück. Für Kinder spielt das keine Rolle:
-Token auflegen reicht.
 
 ## Einstellungen
 
@@ -168,12 +149,13 @@ Token auflegen reicht.
 - Erneutes Auflegen: fortsetzen (fertig gehörte Folgen starten von vorn) / immer von vorn
 - Token abnehmen: pausieren / weiterspielen
 - LED: Farben je Zustand, Helligkeit, Nachtmodus (gedimmt)
-- Sleep-Timer, automatisches Ausschalten bei Inaktivität
-- Akku: Warnschwelle, Abschaltschwelle
+- Ruhemodus: LED-Ring nach X Minuten ohne Wiedergabe und Bedienung aus
+- Sleep-Timer
+- später Akku: Warnschwelle, Abschaltschwelle
 
 ## Kindermodus
 
-Ein Bündel von Regeln, das die Box „kindersicher“ macht. Mit **Eltern-PIN** in der App geschützt:
+Ein Bündel von Regeln, das die Box „kindersicher“ macht. In der App mit der **Eltern-PIN** geschützt (abschaltbar):
 
 | Funktion | Wirkung |
 |---|---|
@@ -181,24 +163,24 @@ Ein Bündel von Regeln, das die Box „kindersicher“ macht. Mit **Eltern-PIN**
 | Kein Autoplay | Nach Ende des Albums keine Spotify-Vorschläge (go-librespot `disable_autoplay: true`) |
 | Schlafenszeit | z. B. 19:30–7:00: neue Token starten nicht, laufende Folge wird zu Ende gespielt, Lautstärke gedeckelt, LEDs gedimmt |
 | Sleep-Timer | Nach X Minuten oder „nach dieser Folge“ ausblenden und stoppen |
-| Tagesbudget (optional) | Maximal X Minuten Hörzeit pro Tag |
+| Tagesbudget (noch nicht gebaut) | Maximal X Minuten Hörzeit pro Tag |
 | Tastensperre | Langes Drücken von Lauter + Leiser sperrt/entsperrt die Tasten |
 | Nur bekannte Token | Unbekannte Tags lösen nichts aus |
-| App-Schutz | Einstellungen und Token-Verwaltung nur mit Eltern-PIN |
+| App-Schutz | Einstellungen und Kindermodus nur mit Eltern-PIN; lässt sich abschalten, weil das Kind die App nicht hat |
 
-## Ressourcen (Pi Zero W)
+## Ressourcen (Pi Zero 2 W)
 
-Der Zero W hat einen Kern (ARMv6, 1 GHz) und 512 MB RAM. Daraus folgt:
-- go-librespot (Go, ein Binary) statt raspotify/librespot, denn raspotify unterstützt ARMv6 nicht.
+Der Zero 2 W hat vier Kerne (ARMv8, 1 GHz) und 512 MB RAM. Daraus folgt:
+- go-librespot (Go, ein Binary) mit eigener lokaler API, ohne Desktop und ohne PipeWire.
 - Bitrate 160 kbit/s, kein Audio-Cache für Spotify auf der SD-Karte (schont Karte und CPU). Lokale Medien liegen
   bewusst auf der Karte und werden nur gelesen.
-- mpv statt eines eigenen Decoders: MP3/AAC in Stereo sollte auf dem Zero W ca. 10–20 % CPU brauchen (im Spike messen).
+- mpv statt eines eigenen Decoders.
 - box-daemon schlank halten: asyncio, keine schweren Abhängigkeiten (kein pandas o. Ä.), NFC-Polling ca. 4–5×/s.
-- Bootzeit von 40–60 s einplanen. Die LED zeigt beim Start sofort eine Animation, damit das Kind sieht, dass etwas passiert.
+- Bootzeit von 30–40 s einplanen.
 
-## Akku & Laden
+## Akku & Laden (später)
 
-- PiSugar 3 (Plus): USB-C-Laden mit Durchreichen, die Box läuft also auch am Netz.
+- PiSugar 3 Air mit 5000-mAh-LiPo: USB-C-Laden, die Box läuft also auch am Netz. Vorerst nur Netzteil.
 - Der Ladestand wird über `pisugar-server` (TCP 8423) gelesen.
 - **Gerät:** Ladezustand als LED-Animation (grün füllender Ring, solange geladen wird); unter 15 % blinkt eine LED rot.
 - **App:** Prozentanzeige, „lädt“/„Netz“, geschätzte Restlaufzeit.
@@ -237,16 +219,12 @@ GET    /api/system/info            {managed, host, version, commit, librespot, u
 GET    /api/system/log             letzte Zeilen beider Dienste (Header X-Parent-Pin)
 POST   /api/system/{restart-spotify|restart-box|reboot|poweroff|spotify-logout|update}   (Header X-Parent-Pin)
 POST   /api/sim/token              {uid|null} Token simulieren (nur mit --fake)
+GET    /api/media                  {albums: [{uri: local:<id>, title, track_count, duration_ms, size}], free_bytes}
+POST   /api/media                  {title} → {uri} neues leeres Album
+GET    /api/media/{id}             {title, files: [{name, size, duration_ms}]}
+POST   /api/media/{id}/files       eine Datei hochladen (multipart, Feld „file“, gestreamt)
+DELETE /api/media/{id}/files/{name}
+DELETE /api/media/{id}             Album mit allen Dateien löschen
 ```
 
-Noch offen (Entwurf):
-
-```
-GET    /api/media                  lokale Medien (Name, Titel, Dauer, Cover-URL, Größe)
-POST   /api/media                  neues Medium anlegen {name} → {id}
-POST   /api/media/{id}/upload      Datei hochladen (Chunks, Header Upload-Offset), danach Metadaten lesen
-GET    /api/media/{id}/cover       Cover-Bild
-PATCH  /api/media/{id}             umbenennen, Titelreihenfolge ändern
-DELETE /api/media/{id}             Medium löschen (Token darauf werden „ohne Inhalt“)
-GET    /api/storage                Speicher frei/belegt
-```
+Ist die Eltern-PIN abgeschaltet (`pin_required: false` im Kindermodus), prüft die Box `X-Parent-Pin` nicht.

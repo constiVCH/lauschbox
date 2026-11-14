@@ -18,6 +18,8 @@ from .system import MemoryLog
 from .engine import Engine
 from .player import FakePlayer, LocalPlayer, MixPlayer, SpotifyPlayer
 from .store import Store
+from .wifi_setup import WifiSetup
+from .wifi_setup import run as run_wifi_setup
 
 log = logging.getLogger("lauschbox")
 
@@ -50,6 +52,8 @@ async def run(args, data_dir: Path) -> web.Application:
     else:
         player = MixPlayer(SpotifyPlayer(args.librespot), LocalPlayer(media_dir, _librespot_audio_device()))
     engine = Engine(store, player)
+    wifi = WifiSetup(args.port, on_change=engine._changed)
+    engine.wifi_setup = wifi
     hardware: dict = {}
 
     if not args.fake:
@@ -64,7 +68,13 @@ async def run(args, data_dir: Path) -> web.Application:
                 await engine.token_removed()
 
         nfc = Nfc(loop, on_token, mode=args.nfc)
-        buttons = Buttons(loop, engine.button)
+        async def on_button(name: str, press: str) -> None:
+            if wifi.active and name == "play_pause":
+                wifi.authorize()  # WLAN-Einrichtung per Bluetooth freigeben statt abspielen
+            else:
+                await engine.button(name, press)
+
+        buttons = Buttons(loop, on_button)
         ring = LedRing()
         amp = Amp()
         for part in (nfc, buttons, ring, amp):
@@ -84,6 +94,8 @@ async def run(args, data_dir: Path) -> web.Application:
             extras["led_task"] = asyncio.create_task(run_leds(hardware["leds"], engine.led_state))
         if any(not part.ok for part in hardware.values()):
             extras["retry_task"] = asyncio.create_task(retry_hardware())
+        if not args.fake:
+            extras["wifi_task"] = asyncio.create_task(run_wifi_setup(wifi))
         if not args.no_mdns:
             extras["mdns"] = await _announce(args.port)
         log.info("Lauschbox bereit auf Port %s (%s)", args.port, "Simulation" if args.fake else "Hardware")
@@ -99,8 +111,9 @@ async def run(args, data_dir: Path) -> web.Application:
         await retry_parts(hardware, on_ok, engine._changed)
 
     async def cleanup(app: web.Application) -> None:
-        if "retry_task" in extras:
-            extras["retry_task"].cancel()
+        for name in ("retry_task", "wifi_task"):
+            if name in extras:
+                extras[name].cancel()
         if "led_task" in extras:
             extras["led_task"].cancel()
         if extras.get("mdns"):

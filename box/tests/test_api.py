@@ -22,6 +22,12 @@ def test_falsche_pin_wird_abgelehnt(tmp_path):
             assert resp.status == 403 and engine.kid.max_volume == 60
             resp = await client.put("/api/kidmode", json={"max_volume": 80}, headers={"X-Parent-Pin": "1234"})
             assert resp.status == 200 and engine.kid.max_volume == 80
+            # PIN abgeschaltet: alles geht ohne, bis sie wieder an ist
+            assert (await client.put("/api/kidmode", json={"pin_required": False}, headers={"X-Parent-Pin": "1234"})).status == 200
+            assert (await client.request("GET", "/api/system/log")).status == 200
+            assert (await (await client.post("/api/kidmode/verify", json={"pin": ""})).json())["ok"]
+            assert (await client.put("/api/kidmode", json={"pin_required": True})).status == 200
+            assert (await client.request("GET", "/api/system/log")).status == 403
 
     asyncio.run(go())
 

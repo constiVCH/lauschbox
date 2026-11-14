@@ -1,5 +1,8 @@
 import Storage from 'expo-sqlite/kv-store';
 
+/** Adresse der zuletzt verbundenen Box */
+export const HOST_KEY = 'hw.host';
+
 /** Kleine Merkhilfen (letzte Pi-Adresse). Fehler beim Speichern sind hier egal. */
 export async function load(key: string): Promise<string | null> {
   try {
