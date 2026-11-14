@@ -69,8 +69,9 @@ async def run(args, data_dir: Path) -> web.Application:
 
         nfc = Nfc(loop, on_token, mode=args.nfc)
         async def on_button(name: str, press: str) -> None:
-            if wifi.active and name == "play_pause":
-                wifi.authorize()  # WLAN-Einrichtung per Bluetooth freigeben statt abspielen
+            if name == "wifi":
+                engine._wake()
+                wifi.toggle()  # alle drei Taster: WLAN-Einrichtung per Bluetooth an/aus
             else:
                 await engine.button(name, press)
 

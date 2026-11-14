@@ -71,7 +71,7 @@ nach Anleitung nach und richten die App selbst ein.
 ## Brand Commitments
 
 - Name: **Lauschbox** („lauschen“ + Box): kindgerecht und bodenständig; das Gehäuse ist eine Kiste mit LED-Ring vorn, Token-Schlitz und Tasten oben, Lautsprechern in den Seiten und einer Kordel als Griff.
-- Logo: `brand/logo.svg`. Die Box von vorn auf Nachtblau: korallfarbener Körper mit LED-Ring (12 Punkte, 9 leuchtend), drei Tasten oben, flache Kordel, Schallbögen links und rechts. Einfarbiges Piktogramm für die Box: `brand/piktogramm.svg`. Alle Icons erzeugt `brand/make_logo.py`.
+- Logo: `brand/logo.svg`. Schlicht und abstrakt: korallfarbene Box mit kurzem Henkel auf Nachtblau, vorn ein Fortschrittsring (drei Viertel gehört) mit Play-Zeichen. Einfarbiges Piktogramm für die Box: `brand/piktogramm.svg`. Alle Icons erzeugt `brand/make_logo.py`.
 - Stimme: deutsch, direkt, für Erwachsene geschrieben.
 
 ## Evidence on Hand

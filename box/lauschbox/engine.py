@@ -727,9 +727,7 @@ class Engine:
         if self._flash and time.monotonic() < self._flash_until:
             led = dict(self._flash)
         elif self.wifi_setup and self.wifi_setup.active:
-            # Kein WLAN, Einrichtung per Bluetooth: blau pulsierend, nach dem Druck auf Play blau leuchtend
-            authorized = self.wifi_setup.state != 1
-            led = {"mode": "playing" if authorized else "learn", "color": LED_COLORS["learn"], "fill": 1.0}
+            led = {"mode": "learn", "color": LED_COLORS["learn"], "fill": 1.0}  # WLAN-Einrichtung per Bluetooth
         elif self.standby:
             led = {"mode": "off", "color": "#000000", "fill": 0.0}
         elif self.learning:

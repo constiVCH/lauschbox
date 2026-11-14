@@ -15,7 +15,7 @@ def test_paket_hin_und_zurueck():
         w.parse_rpc(bytes([1, 5, 9, 0]))  # Länge passt nicht
 
 
-def test_erst_nach_freigabe_verbinden():
+def test_verbinden_liefert_adresse():
     async def go():
         tried = []
 
@@ -24,13 +24,11 @@ def test_erst_nach_freigabe_verbinden():
             return True
 
         setup = w.WifiSetup(8080, connect=connect, ip=lambda: "192.168.1.7")
-        packet = w.rpc_packet(w.WIFI_SETTINGS, ["Heimnetz", "geheim"])
-        await setup.handle_rpc(packet)
-        assert setup.error == w.NOT_AUTHORIZED and not tried  # ohne Play an der Box passiert nichts
-        setup.authorize()
-        await setup.handle_rpc(packet)
+        await setup.handle_rpc(w.rpc_packet(w.WIFI_SETTINGS, ["Heimnetz", "geheim"]))
         assert tried == [("Heimnetz", "geheim")] and setup.state == w.PROVISIONED
         assert w.parse_rpc(setup.result) == (w.WIFI_SETTINGS, ["http://192.168.1.7:8080"])
+        await setup.handle_rpc(bytes([7, 0, 7]))
+        assert setup.error == w.UNKNOWN_RPC
 
     asyncio.run(go())
 
@@ -41,7 +39,6 @@ def test_falsches_passwort_bleibt_freigegeben():
             return False
 
         setup = w.WifiSetup(8080, connect=connect, ip=lambda: None)
-        setup.authorize()
         await setup.handle_rpc(w.rpc_packet(w.WIFI_SETTINGS, ["Heimnetz", "falsch"]))
         assert setup.state == w.AUTHORIZED and setup.error == w.UNABLE_TO_CONNECT  # nochmal versuchen geht
 

@@ -12,7 +12,7 @@ import { radius, space, type, useColors } from '@/theme';
 
 type Phase = 'search' | 'connecting' | 'auth' | 'form' | 'sending' | 'done';
 
-/** Box ohne WLAN per Bluetooth ins Heimnetz bringen. */
+/** Box per Bluetooth mit einem WLAN verbinden (erstes oder weiteres, z. B. bei den Großeltern). */
 export default function WlanScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -80,15 +80,15 @@ export default function WlanScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.bar, { paddingTop: Platform.OS === 'ios' ? space.md : insets.top + space.sm }]}>
         <View style={{ width: 80 }} />
-        <Txt variant="headline">Box ins WLAN bringen</Txt>
+        <Txt variant="headline">WLAN einrichten</Txt>
         <Button label="Fertig" kind="plain" compact onPress={() => router.back()} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xxl }]} keyboardShouldPersistTaps="handled">
         {phase === 'search' && (
           <>
             <Txt variant="callout" color="secondary">
-              Hat die Box kein WLAN, wartet sie nach etwa einer halben Minute per Bluetooth auf die Einrichtung. Der LED-Ring pulsiert dann blau.
-              Handy in die Nähe der Box halten.
+              Halte an der Box alle drei Tasten 3 Sekunden gedrückt, bis der LED-Ring blau pulsiert. Dann wartet sie 10 Minuten
+              per Bluetooth auf die Einrichtung. Handy in die Nähe der Box halten.
             </Txt>
             {boxes.length === 0 && !error && (
               <View style={styles.waiting}>
@@ -108,10 +108,10 @@ export default function WlanScreen() {
           <Card style={styles.step}>
             <Ionicons name="play-circle" size={40} color={c.accent} />
             <Txt variant="headline" style={{ textAlign: 'center' }}>
-              Drück an der Box kurz auf Play
+              Halte an der Box alle drei Tasten 3 Sekunden
             </Txt>
             <Txt variant="footnote" color="secondary" style={{ textAlign: 'center' }}>
-              So weiß die Box, dass du vor ihr stehst. Der Ring leuchtet danach ruhig blau.
+              So weiß die Box, dass du vor ihr stehst.
             </Txt>
             <ActivityIndicator color={c.textSecondary} />
           </Card>
@@ -142,7 +142,8 @@ export default function WlanScreen() {
               style={[type.body, styles.input, { color: c.text, backgroundColor: c.surface }]}
             />
             <Txt variant="footnote" color="tertiary">
-              Die Box kann nur 2,4-GHz-WLAN.
+              Nur 2,4-GHz-WLAN. Die Box merkt sich jedes eingerichtete WLAN und verbindet sich an jedem Ort von selbst mit dem, das
+              sie dort findet.
             </Txt>
             <Button label="Verbinden" icon="wifi" onPress={send} disabled={!ssid.trim()} />
           </>

@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 
 NUM_LEDS = 24
 HOLD_S = 1.0
+COMBO_HOLD_S = 3.0  # alle drei Taster so lange halten: WLAN-Einrichtung per Bluetooth
+ALL_BUTTONS = {"play_pause", "lauter", "leiser"}
 
 
 UART_PORT = "/dev/serial0"  # Pins 8/10
@@ -164,7 +166,7 @@ class Nfc(Part):
 
 
 class Buttons(Part):
-    """Kurz/lang je Taster; + und − gleichzeitig lang = Tastensperre umschalten."""
+    """Kurz/lang je Taster; + und − gleichzeitig lang = Tastensperre; alle drei 3 s = WLAN-Einrichtung („wifi“)."""
 
     def __init__(self, loop: asyncio.AbstractEventLoop, on_press: Callable[[str, str], Awaitable[None]]):
         super().__init__("buttons")
@@ -224,8 +226,16 @@ class Buttons(Part):
         timer.daemon = True
         self._timers[name] = timer
         timer.start()
+        if ALL_BUTTONS <= self.down.keys():
+            # Alle drei: Sperre, Titelsprung und Neustart des Tokens fallen weg, beim Loslassen auch „kurz“
+            self.consumed |= ALL_BUTTONS
+            combo = threading.Timer(COMBO_HOLD_S, lambda: ALL_BUTTONS <= self.down.keys() and self._emit("wifi", "lang"))
+            combo.daemon = True
+            combo.start()
 
     def _held(self, name: str) -> None:
+        if name in self.consumed:
+            return
         if {"lauter", "leiser"} <= self.down.keys():
             if not {"lauter", "leiser"} & self.consumed:
                 self.consumed |= {"lauter", "leiser"}

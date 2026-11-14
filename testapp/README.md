@@ -6,7 +6,7 @@ Die Eltern-App der Lauschbox. Vom Startbildschirm aus:
   Spotify-Suche, eigene Playlists, Link oder eigene Dateien), Wiedergabe steuern, Sleep-Timer, Tastensperre,
   Kindermodus und Einstellungen (Spotify, LED-Ring, eigene Dateien, Update, Neustart, Ausschalten, Log).
   Kindermodus und Einstellungen sind mit der Eltern-PIN geschützt (ab Werk **1234**, im Kindermodus abschaltbar).
-- **Neue Box ins WLAN bringen:** per Bluetooth, wenn die Box noch kein WLAN hat ([docs/pi-setup.md](../docs/pi-setup.md), Schritt 4).
+- **WLAN einrichten (Bluetooth):** erstes oder weiteres WLAN; an der Box dafür alle drei Tasten 3 s halten ([docs/pi-setup.md](../docs/pi-setup.md), Schritt 4).
 - **Ohne Box ausprobieren:** am PC `cd box && python -m lauschbox --fake`, dann in der App die IP des PCs eintragen.
   Token legt man dann im Tab „Box“ per Ziehen auf.
 
@@ -41,7 +41,7 @@ npx expo-doctor
 ```
 src/
   app/                 Bildschirme (Expo Router)
-    index.tsx          Start: Box verbinden, neue Box ins WLAN bringen
+    index.tsx          Start: Box verbinden, WLAN einrichten
     box/               Tabs Box, Token, Kindermodus, Einstellungen
     token-edit.tsx     Token anlegen/bearbeiten (Blatt)
     dateien.tsx        Eigene Dateien auf der Box verwalten

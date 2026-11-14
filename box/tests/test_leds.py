@@ -133,3 +133,32 @@ def test_taster_kurz_und_lang(monkeypatch):
         return presses
 
     assert asyncio.run(go()) == [("play_pause", "kurz"), ("play_pause", "lang")]
+
+
+def test_alle_drei_taster_starten_wlan_einrichtung(monkeypatch):
+    import asyncio
+
+    from lauschbox import hardware
+
+    _fake_gpiod(monkeypatch, [])
+    monkeypatch.setattr(hardware, "HOLD_S", 0.05)
+    monkeypatch.setattr(hardware, "COMBO_HOLD_S", 0.15)
+
+    async def go():
+        presses = []
+
+        async def on_press(name, press):
+            presses.append((name, press))
+
+        buttons = hardware.Buttons(asyncio.get_running_loop(), on_press)
+        buttons.start()
+        for name in ("lauter", "leiser", "play_pause"):
+            buttons._pressed(name)
+        await asyncio.sleep(0.25)
+        for name in ("lauter", "leiser", "play_pause"):
+            buttons._released(name)
+        await asyncio.sleep(0.05)
+        return presses
+
+    # Keine Tastensperre, kein Titelsprung, kein „kurz“ beim Loslassen, nur die WLAN-Einrichtung
+    assert asyncio.run(go()) == [("wifi", "lang")]

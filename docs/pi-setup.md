@@ -6,8 +6,8 @@ Einmal am PC und per SSH, danach geht alles in der App. Verdrahtung vorher: [har
 
 Raspberry Pi Imager → Gerät **Raspberry Pi Zero 2 W** → **Raspberry Pi OS Lite (64-bit)**. In den Einstellungen des Imagers:
 - Hostname `lauschbox`, Benutzer und Passwort, **SSH an**
-- WLAN eintragen (nur **2,4 GHz**). Ohne WLAN geht es auch: Die Box lässt sich später per Bluetooth ins WLAN bringen
-  (Schritt 4), die Installation in Schritt 2 braucht aber einmal Internet.
+- WLAN eintragen (nur **2,4 GHz**). Weitere WLANs kommen später per Bluetooth dazu (Schritt 4); die Installation in
+  Schritt 2 braucht einmal Internet.
 
 ## 2. Box-Software installieren
 
@@ -41,14 +41,17 @@ Startbildschirm → IP der Box eintragen → „Mit Box verbinden“. Danach unt
 
 ## 4. WLAN per Bluetooth (ohne Bildschirm und ohne SSH)
 
-Hat die Box eine halbe Minute lang kein WLAN, wartet sie per Bluetooth auf die Einrichtung (Protokoll
-[Improv Wi-Fi](https://www.improv-wifi.com/)); der LED-Ring pulsiert blau.
-1. App → Startbildschirm → „Neue Box ins WLAN bringen“ → Box auswählen.
-2. An der Box kurz **Play** drücken (Freigabe, der Ring leuchtet dann ruhig blau). So kann niemand in Funkreichweite
-   die Box ohne Zugang zum Gerät umstellen.
+Die Box läuft auch ganz ohne WLAN (eigene Dateien), deshalb startet die Einrichtung nur von Hand
+(Protokoll [Improv Wi-Fi](https://www.improv-wifi.com/)):
+1. An der Box **alle drei Tasten 3 Sekunden halten**, bis der LED-Ring blau pulsiert. Bluetooth bleibt dann 10 Minuten an
+   (nochmal alle drei halten bricht ab). Weil man dafür an der Box stehen muss, kann niemand in Funkreichweite sie umstellen.
+2. App → Startbildschirm → „WLAN einrichten (Bluetooth)“ → Box auswählen.
 3. WLAN-Name und Passwort eingeben → Die Box verbindet sich und die App öffnet sie direkt.
 
-Das funktioniert auch beim Umzug in ein anderes WLAN. Code: [box/lauschbox/wifi_setup.py](../box/lauschbox/wifi_setup.py)
+**Mehrere Orte:** NetworkManager merkt sich jedes eingerichtete WLAN und verbindet sich überall mit dem, das er findet.
+Also an jedem Ort (zu Hause, Großeltern, Ferienwohnung) einmal einrichten; das WLAN muss dabei in Reichweite sein.
+
+Code: [box/lauschbox/wifi_setup.py](../box/lauschbox/wifi_setup.py)
 und [testapp/src/improv.ts](../testapp/src/improv.ts).
 
 ## Daten

@@ -80,11 +80,11 @@ export default function Start() {
           </View>
           <Button label="Mit Box verbinden" icon="wifi" onPress={openBox} disabled={!valid} />
           <Button
-            label="Neue Box ins WLAN bringen"
+            label="WLAN einrichten (Bluetooth)"
             icon="bluetooth"
             kind="secondary"
             onPress={() => router.push('/wlan' as Href)}
-            accessibilityHint="Per Bluetooth, wenn die Box noch kein WLAN hat"
+            accessibilityHint="Erstes oder weiteres WLAN; an der Box alle drei Tasten 3 Sekunden halten"
           />
         </Card>
 

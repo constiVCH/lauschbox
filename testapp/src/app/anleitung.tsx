@@ -11,8 +11,9 @@ export default function Anleitung() {
         <Card style={{ gap: space.sm }}>
           <Txt variant="body">Box und Handy müssen im selben WLAN sein.</Txt>
           <Txt variant="body" color="secondary">
-            Hat die Box noch kein WLAN, pulsiert ihr Ring nach einer halben Minute blau. Dann auf dem Start-Bildschirm „Neue Box
-            ins WLAN bringen“ tippen, an der Box kurz Play drücken und WLAN-Name und Passwort eingeben.
+            WLAN einrichten: an der Box alle drei Tasten 3 Sekunden halten, bis der Ring blau pulsiert. Dann auf dem Start-Bildschirm
+            „WLAN einrichten (Bluetooth)“ tippen und WLAN-Name und Passwort eingeben. Die Box merkt sich jedes WLAN; an einem neuen
+            Ort (z. B. bei den Großeltern) dort einmal einrichten. Ohne WLAN spielen eigene Dateien trotzdem.
           </Txt>
           <Txt variant="body" color="secondary">
             Sonst die Adresse der Box eintragen (z. B. 192.168.178.42) und „Mit Box verbinden“ tippen. Die Adresse zeigt dein Router.
@@ -44,6 +45,7 @@ export default function Anleitung() {
           <Row title="+ / − kurz" subtitle="Lauter oder leiser" icon="volume-high" />
           <Row title="+ / − lang" subtitle="Nächster oder vorheriger Titel" icon="play-forward" />
           <Row title="+ und − zusammen lang" subtitle="Tasten sperren oder entsperren" icon="lock-closed" />
+          <Row title="Alle drei Tasten 3 s" subtitle="WLAN einrichten per Bluetooth (nochmal: abbrechen)" icon="bluetooth" />
         </Card>
       </Section>
 
@@ -54,8 +56,7 @@ export default function Anleitung() {
           <Row title="Ring in Token-Farbe" subtitle="Spielt; der Ring füllt sich mit dem Fortschritt" icon="ellipse" iconColor="#E8663D" />
           <Row title="Token-Farbe pulsiert" subtitle="Pause" icon="ellipse" iconColor="#E8663D" />
           <Row title="Weiß füllt sich kurz" subtitle="Lautstärke" icon="ellipse" iconColor="#B8BFCC" />
-          <Row title="Blau pulsiert" subtitle="Lernmodus: leeren Token auflegen. Oder: kein WLAN, Einrichtung per Bluetooth wartet" icon="ellipse" iconColor="#5B9BFF" />
-          <Row title="Blau leuchtet ruhig" subtitle="WLAN-Einrichtung freigegeben, weiter in der App" icon="ellipse" iconColor="#5B9BFF" />
+          <Row title="Blau pulsiert" subtitle="Lernmodus: leeren Token auflegen. Oder: WLAN-Einrichtung per Bluetooth wartet" icon="ellipse" iconColor="#5B9BFF" />
           <Row title="Orange blinkt" subtitle="Unbekannter Token" icon="ellipse" iconColor="#FF9F40" />
           <Row title="Lila pulsiert" subtitle="Schlafenszeit: startet erst morgen" icon="ellipse" iconColor="#B07CFF" />
           <Row title="Rot blinkt" subtitle="Tasten gesperrt oder Fehler" icon="ellipse" iconColor="#FF5A4E" />

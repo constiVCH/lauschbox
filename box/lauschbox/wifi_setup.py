@@ -1,8 +1,10 @@
 """WLAN-Einrichtung per Bluetooth LE nach dem offenen Protokoll „Improv Wi-Fi“ (improv-wifi.com).
 
-Hat die Box kein WLAN, meldet sie sich per Bluetooth als „Lauschbox“. Die App verbindet sich, die Box verlangt eine
-Freigabe (Play an der Box drücken, der LED-Ring leuchtet dabei blau), dann schickt die App Netzname und Passwort.
-Die Box verbindet sich über NetworkManager (nmcli) und antwortet mit ihrer Adresse für die App.
+Startet nur von Hand: alle drei Taster 3 s halten (die Box läuft auch ganz ohne WLAN, Bluetooth bleibt sonst aus).
+Dann meldet sie sich 10 Minuten lang per Bluetooth als „Lauschbox“, der LED-Ring pulsiert blau. Wer die Tasten drückt,
+steht vor der Box: Damit ist die Einrichtung freigegeben. Die App schickt Netzname und Passwort, die Box verbindet sich
+über NetworkManager (nmcli) und antwortet mit ihrer Adresse. NetworkManager merkt sich jedes WLAN: An jedem Ort einmal
+einrichten, danach verbindet sich die Box dort von selbst.
 """
 from __future__ import annotations
 
@@ -20,12 +22,11 @@ RPC_COMMAND = "00467768-6228-2272-4663-277478268003"
 RPC_RESULT = "00467768-6228-2272-4663-277478268004"
 CAPABILITIES = "00467768-6228-2272-4663-277478268005"
 
-AUTH_REQUIRED, AUTHORIZED, PROVISIONING, PROVISIONED = 1, 2, 3, 4
+AUTH_REQUIRED, AUTHORIZED, PROVISIONING, PROVISIONED = 1, 2, 3, 4  # AUTH_REQUIRED kommt nicht vor: die Taster sind die Freigabe
 NO_ERROR, INVALID_RPC, UNKNOWN_RPC, UNABLE_TO_CONNECT, NOT_AUTHORIZED = 0, 1, 2, 3, 4
 WIFI_SETTINGS = 1
 
-OFFLINE_BEFORE_SETUP_S = 30  # so lange ohne WLAN, dann Bluetooth-Einrichtung anbieten
-AUTHORIZED_FOR_S = 300  # nach dem Druck auf Play so lange Zeit für die Eingabe in der App
+SETUP_FOR_S = 600  # so lange bleibt Bluetooth nach dem Tastendruck an
 
 
 def parse_rpc(data: bytes) -> tuple[int, list[str]]:
@@ -85,11 +86,11 @@ class WifiSetup:
         self.connect = connect
         self.ip = ip
         self.active = False  # Bluetooth-Einrichtung läuft
-        self.state = AUTH_REQUIRED
+        self.state = AUTHORIZED
         self.error = NO_ERROR
         self.result = b""
         self.notify: Callable[[str], None] = lambda uuid: None  # von der Bluetooth-Seite gesetzt
-        self._auth_task: asyncio.Task | None = None
+        self._toggled = asyncio.Event()
 
     def _set(self, state: int | None = None, error: int | None = None) -> None:
         if state is not None and state != self.state:
@@ -100,20 +101,9 @@ class WifiSetup:
             self.error = error
             self.notify(ERROR)
 
-    def authorize(self) -> None:
-        """Play an der Box gedrückt, während die Einrichtung läuft."""
-        if self.state != AUTH_REQUIRED:
-            return
-        log.info("WLAN-Einrichtung freigegeben (%d s)", AUTHORIZED_FOR_S)
-        self._set(AUTHORIZED, NO_ERROR)
-        if self._auth_task:
-            self._auth_task.cancel()
-        self._auth_task = asyncio.ensure_future(self._expire())
-
-    async def _expire(self) -> None:
-        await asyncio.sleep(AUTHORIZED_FOR_S)
-        if self.state == AUTHORIZED:
-            self._set(AUTH_REQUIRED)
+    def toggle(self) -> None:
+        """Alle drei Taster gehalten: Einrichtung starten bzw. vorzeitig beenden."""
+        self._toggled.set()
 
     async def handle_rpc(self, data: bytes) -> None:
         try:
@@ -142,34 +132,29 @@ class WifiSetup:
 
 
 async def run(setup: WifiSetup) -> None:
-    """Bluetooth-Einrichtung anbieten, solange die Box kein WLAN hat."""
-    offline_since: float | None = None
-    server = None
-    loop = asyncio.get_running_loop()
+    """Auf den Tastendruck warten, dann Bluetooth anbieten, bis eingerichtet, abgelaufen oder erneut gedrückt."""
     while True:
-        online = setup.ip() is not None
-        now = loop.time()
-        if online:
-            offline_since = None
-        elif offline_since is None:
-            offline_since = now
-        want = not online and now - offline_since >= OFFLINE_BEFORE_SETUP_S
-        if want and server is None:
-            try:
-                server = await _start_ble(setup, loop)
-                setup.active, setup.state, setup.error = True, AUTH_REQUIRED, NO_ERROR
-                setup.on_change()
-                log.info("Kein WLAN: Einrichtung per Bluetooth aktiv („Lauschbox“)")
-            except Exception as e:  # noqa: BLE001 – ohne Bluetooth läuft die Box trotzdem
-                log.warning("Bluetooth-Einrichtung nicht möglich: %s", e)
-                await asyncio.sleep(300)
-        elif server is not None and online and setup.state != PROVISIONING:
-            await asyncio.sleep(10)  # der App Zeit lassen, das Ergebnis zu lesen
-            await server.stop()
-            server, setup.active = None, False
-            setup.on_change()
-            log.info("WLAN da: Bluetooth-Einrichtung beendet")
-        await asyncio.sleep(5)
+        await setup._toggled.wait()
+        setup._toggled.clear()
+        try:
+            server = await _start_ble(setup, asyncio.get_running_loop())
+        except Exception as e:  # noqa: BLE001 – ohne Bluetooth läuft die Box trotzdem
+            log.warning("Bluetooth-Einrichtung nicht möglich: %s", e)
+            continue
+        setup.active, setup.state, setup.error, setup.result = True, AUTHORIZED, NO_ERROR, b""
+        setup.on_change()
+        log.info("WLAN-Einrichtung per Bluetooth aktiv („Lauschbox“, %d min)", SETUP_FOR_S // 60)
+        deadline = asyncio.get_running_loop().time() + SETUP_FOR_S
+        while not setup._toggled.is_set() and asyncio.get_running_loop().time() < deadline:
+            if setup.state == PROVISIONED:
+                await asyncio.sleep(10)  # der App Zeit lassen, das Ergebnis zu lesen
+                break
+            await asyncio.sleep(1)
+        setup._toggled.clear()
+        await server.stop()
+        setup.active = False
+        setup.on_change()
+        log.info("WLAN-Einrichtung per Bluetooth beendet")
 
 
 async def _start_ble(setup: WifiSetup, loop: asyncio.AbstractEventLoop):

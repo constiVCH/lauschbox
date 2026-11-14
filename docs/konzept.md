@@ -95,6 +95,7 @@ spielen die Token trotzdem weiter.
 | Lauter | lauter (bis zur Grenze) | nächster Titel |
 | Leiser | leiser | Titel zurück |
 | Lauter + Leiser | | Tasten sperren/entsperren |
+| alle drei | | 3 s: WLAN-Einrichtung per Bluetooth starten bzw. abbrechen |
 
 ## Eigene Dateien & Offline-Betrieb
 
@@ -142,6 +143,16 @@ die Schlafenszeit wäre falsch. Lösung: die **RTC des PiSugar 3 Air**.
 - box-daemon wartet beim Start **nicht** auf das Netz. NFC, Tasten, LEDs und lokale Wiedergabe sind sofort bereit.
 - go-librespot verbindet sich später selbst, wenn WLAN da ist. Der box-daemon fragt dessen Status ab
   und behandelt Spotify bis dahin als „nicht verfügbar“.
+
+## WLAN-Einrichtung per Bluetooth
+
+Protokoll [Improv Wi-Fi](https://www.improv-wifi.com/) (offener Standard, Bluetooth-Dienst `00467768-6228-2272-4663-277478268000`).
+1. Nur von Hand, weil die Box auch ganz ohne WLAN laufen soll: alle drei Taster 3 s halten. Die Box meldet sich dann
+   10 Minuten per Bluetooth als „Lauschbox“; der Ring pulsiert blau. Der Tastendruck ist zugleich die Freigabe:
+   Ohne Zugang zum Gerät kann niemand in Funkreichweite das WLAN umstellen.
+2. Die App schickt Netzname und Passwort; die Box verbindet sich über NetworkManager (`nmcli`) und antwortet mit ihrer
+   Adresse (`http://IP:8080`). Die App öffnet die Box direkt, Bluetooth geht wieder aus.
+3. NetworkManager merkt sich jedes WLAN. An jedem Ort einmal einrichten, danach verbindet sich die Box dort von selbst.
 
 ## Einstellungen
 
